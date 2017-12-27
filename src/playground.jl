@@ -1,5 +1,3 @@
-# File with exploratory code-scraplets
-
 __precompile__()
 module Foo
 include("constants.jl")
@@ -17,6 +15,7 @@ end
 # SVG_ATTR_NAME
 # COMBINED_VOID_TAGS
 # HTML_SVG_TAG_INTERSECTION_MD
+
 
 #=
 using Base.Iterators
