@@ -1,21 +1,20 @@
 # Hyperscript: A validating HTML and SVG markup DSL
 
-Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax. It supports basic validation against the HTML/SVG specs in order to prevent simple mistakes, such as specifying the attribute `x` instead of `cx` on an SVG `<circle>`.
-
+Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
 
 ```
 Pkg.add("Hyperscript")
 using Hyperscript
 ```
 
-Hyperscript provides a markup function `m` for concisely specifying DOM trees:
+Hyperscript introduces the `m` function for creating markup nodes:
 
 ```
 m("div", class="entry",
     m("h1", "An Important Announcement"))
 ```
 
-The `m` function returns a node object which knows how to show itself as a string. For concise expression, nodes can be applied as functions to supply additional attributes and children:
+Nodes can be used as a templates:
 
 ```
 const div = m("div")
@@ -23,33 +22,39 @@ const h1 = m("h1")
 div(class="entry", h1("An Important Announcement"))
 ```
 
-Hyperscript provides a convenience macro `@tags` that allows the above example to be written like this:
+Dot syntax is supported for setting class attributes:
 
 ```
-@tags div h1
-div(class="entry", h1("An Important Announcement"))
+const div = m("div")
+const h1 = m("h1")
+div.entry(h1("An Important Announcement"))
 ```
 
-or like this:
+Chained dot calls turn into multiple classes:
 
 ```
-@tags div h1
-const entry = div(class="entry")
-entry(h1("An Important Announcement"))
+m("div").header.entry
 ```
 
-Hyperscript allows setting the `class` attribute using dot syntax, mirroring CSS selectors:
+The convenience macro `@tags` can be used to quickly declare common tags:
 
 ```
 @tags div h1
 const entry = div.entry
 entry(h1("An Important Announcement"))
-entry(h1("Another one"))
 ```
 
-To specify attributes that aren't representable as Julia identifiers (such as those with hyphens) you can use camelCase or squishcase — Hyperscript will convert them to their proper forms.
+Some attribute names, such as those with hyphens, can't be written as Julia identifiers. For those you can use either camelCase or squishcase and Hyperscript will convert them for you:
 
 ```
-m("form", acceptCharset="ISO-8859-1")
-m("form", acceptcharset="ISO-8859-1")
+# These are both valid:
+m("meta", httpEquiv="refresh)
+m("meta", httpequiv="refresh)
+```
+
+If you'd like to use Hyperscript for more general XML trees, you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
+
+```
+import Hyperscript
+const m = Hyperscript.m_novalidate
 ```
