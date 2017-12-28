@@ -55,8 +55,8 @@ Some attribute names, such as those with hyphens, can't be written as Julia iden
 
 ```
 # These are both valid:
-m("meta", httpEquiv="refresh)
-m("meta", httpequiv="refresh)
+m("meta", httpEquiv="refresh")
+m("meta", httpequiv="refresh")
 ```
 
 If you'd like to turn off validation or use Hyperscript for more general XML trees, you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
