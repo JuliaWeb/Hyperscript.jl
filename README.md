@@ -64,6 +64,8 @@ If you'd like to turn off validation or use Hyperscript for more general XML tre
 ```
 import Hyperscript # Note "import", not "using"
 const m = Hyperscript.m_novalidate
+m("snoopy") # <snoopy></snoopy>
+m("div", mood="facetious") # <div mood="facetious"></div>
 ```
 
 
