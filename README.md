@@ -59,7 +59,7 @@ m("meta", httpEquiv="refresh")
 m("meta", httpequiv="refresh")
 ```
 
-If you'd like to turn off validation, you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
+If you'd like to turn off validation you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
 
 ```
 import Hyperscript # Note "import", not "using"
