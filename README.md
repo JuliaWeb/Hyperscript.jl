@@ -1,4 +1,4 @@
-# Hyperscript: A validating HTML and SVG markup DSL
+# Hyperscript: Lightweight HTML and SVG markup for Julia
 
 Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
 
@@ -12,6 +12,13 @@ Hyperscript introduces the `m` function for creating markup nodes:
 ```
 m("div", class="entry",
     m("h1", "An Important Announcement"))
+```
+
+Nodes are validated as they are created. Hyperscript checks for valid tag names, and tag-attribute pairs:
+
+```
+m("snoopy") # ERROR: snoopy is not a valid HTML or SVG tag
+m("div", mood="facetious") # ERROR: mood is not a valid attribute name
 ```
 
 Nodes can be used as a templates:
