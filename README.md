@@ -1,4 +1,4 @@
-# Hyperscript.jl: HTML and SVG markup for Julia
+# Hyperscript: A lightweight DOM and HTML markup DSL
 
 Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
 
