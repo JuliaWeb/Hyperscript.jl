@@ -3,7 +3,7 @@
 Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
 
 ```
-Pkg.add("Hyperscript")
+Pkg.clone("https://github.com/yurivish/Hyperscript.jl")
 using Hyperscript
 ```
 
@@ -55,6 +55,9 @@ m("meta", httpequiv="refresh)
 If you'd like to use Hyperscript for more general XML trees, you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
 
 ```
-import Hyperscript
+import Hyperscript # Note "import", not "using"
 const m = Hyperscript.m_novalidate
 ```
+
+
+To validate more stringently against _just_ HTML or _just_ SVG, you can similarly use `Hyperscript.m_html` or `Hyperscript.m_svg`.
