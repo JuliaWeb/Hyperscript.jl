@@ -62,7 +62,7 @@ m("meta", httpequiv="refresh")
 If you'd like to turn off validation you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
 
 ```
-import Hyperscript # Note "import", not "using"
+import Hyperscript # Note import, not using
 const m = Hyperscript.m_novalidate
 
 m("snoopy") # <snoopy></snoopy>
