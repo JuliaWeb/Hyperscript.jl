@@ -53,7 +53,7 @@ const entry = div.entry
 entry(h1("An Important Announcement"))
 ```
 
-Arrays, tuples, and generators are recursively flattened, automatically linearizing nested structures for display:
+Arrays, tuples, and generators are recursively flattened, linearizing nested structures for display:
 
 ```
 @tags div h1
