@@ -43,12 +43,21 @@ Chained dot calls turn into multiple classes:
 m("div").header.entry
 ```
 
+
 The convenience macro `@tags` can be used to quickly declare common tags:
 
 ```
 @tags div h1
 const entry = div.entry
 entry(h1("An Important Announcement"))
+```
+
+Arrays, tuples, and generators are recursively flattened, automatically linearizing nested structures for display:
+
+```
+@tags div h1
+const entry = div.entry
+div(entry.(["$n Fast $n Furious" for n in 1:10])) # this joke is © Glen Chiacchieri
 ```
 
 Some attribute names, such as those with hyphens, can't be written as Julia identifiers. For those you can use either camelCase or squishcase and Hyperscript will convert them for you:
