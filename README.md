@@ -1,4 +1,4 @@
-# Hyperscript: Lightweight HTML and SVG markup for Julia
+# Hyperscript.jl: HTML and SVG markup for Julia
 
 Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
 
