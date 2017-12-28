@@ -11,6 +11,8 @@ const COMBINED_ATTRS = merge(unique∘vcat, SVG_ATTRS, HTML_ATTRS)
 const COMBINED_TAGS = union(SVG_TAGS, HTML_TAGS)
 const COMBINED_ATTR_NAMES = merge(HTML_ATTR_NAME, SVG_ATTR_NAME)
 
+# NOTE: This is still the self-closing-tag list when validation is turned off.
+# How should this work instead?
 isvoid(tag) = tag in COMBINED_VOID_TAGS
 
 ## Validation types and implementation
