@@ -41,6 +41,9 @@ $HTML_SVG_TAG_INTERSECTION_MD
 
 abstract type Validation end
 
+# The nans parameter indicates whether to error on
+# NaN attribute values. While this is not strictly
+# against any spec, it is almost never what you want.
 struct Validate{nans} <: Validation
     name::String
     tags::Set{String}
@@ -61,7 +64,7 @@ const VALIDATE_SVG = Validate{true}("SVG", SVG_TAGS, SVG_ATTRS, SVG_ATTR_NAMES)
 "Validates generously against the combination of HTML 4, W3C HTML 5, and WHATWG HTML 5."
 const VALIDATE_HTML = Validate{true}("HTML", HTML_TAGS, HTML_ATTRS, HTML_ATTR_NAMES)
 
-function validatetag(v::Validation, tag)
+function validatetag(v::Validate, tag)
     tag ∈ v.tags || error("$tag is not a valid $(v.name) tag")
     tag
 end
@@ -73,7 +76,7 @@ function validatevalue(v::Validate{true}, tag, attr, value::Number)
 end
 validatevalue(v, tag, attr, value) = value
 
-function validateattrs(v::Validation, tag, nt::NamedTuple)
+function validateattrs(v::Validate, tag, nt::NamedTuple)
     attrs = Dict{String, Any}()
     for (sym, value) in pairs(nt)
         attr = get(v.sym_to_name, sym) do
