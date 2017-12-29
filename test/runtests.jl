@@ -1,3 +1,4 @@
+import Hyperscript
 import Hyperscript: m, m_html, m_svg, m_novalidate
 using Test
 
@@ -56,6 +57,9 @@ end
 
 # allow all tags with no validation mode
 @test_html_eq m_novalidate("smirkle") "<smirkle />"
+
+# allow all attributes with no validation mode
+@test_html_eq m_novalidate("div", mood="facetious") "<div mood=\"facetious\" />"
 
 # invalid attribute name in general
 @test_throws ErrorException m("circle", snoopy=1)

@@ -83,9 +83,9 @@ end
 # Lookup tables from kwargs symbols to attribute strings.
 # e.g. :viewbox => "viewBox", :viewBox => "viewBox"
 # e.g. :stopcolor => "stop-color", :stopColor => "stop-color"
-const HTML_ATTR_NAME = sym_to_attr_dict(HTML_ATTRS)
-const SVG_ATTR_NAME = sym_to_attr_dict(SVG_ATTRS)
-const COMBINED_ATTR_NAME = merge(HTML_ATTR_NAME, SVG_ATTR_NAME)
+const HTML_ATTR_NAMES = sym_to_attr_dict(HTML_ATTRS)
+const SVG_ATTR_NAMES = sym_to_attr_dict(SVG_ATTRS)
+const COMBINED_ATTR_NAME = merge(HTML_ATTR_NAMES, SVG_ATTR_NAMES)
 
 # Void elements are not allowed to contain content
 # See: http://www.w3.org/TR/html5/syntax.html#void-elements
@@ -116,8 +116,8 @@ open("constants.jl", "w") do io
     println(io, @vardecl(SVG_ATTRS))
     # println(io, @vardecl(COMBINED_ATTRS))
 
-    println(io, @vardecl(HTML_ATTR_NAME))
-    println(io, @vardecl(SVG_ATTR_NAME))
+    println(io, @vardecl(HTML_ATTR_NAMES))
+    println(io, @vardecl(SVG_ATTR_NAMES))
     # println(io, @vardecl(COMBINED_ATTR_NAME))
 
     println(io, @vardecl(COMBINED_VOID_TAGS))
