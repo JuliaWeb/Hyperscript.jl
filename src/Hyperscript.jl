@@ -42,10 +42,10 @@ $HTML_SVG_TAG_INTERSECTION_MD
 abstract type Validation end
 
 struct Validate{nans} <: Validation
-    name
-    tags
-    tag_to_attrs
-    sym_to_name
+    name::String
+    tags::Set{String}
+    tag_to_attrs::Dict{String, Vector{String}}
+    sym_to_name::Dict{Symbol, String}
 end
 
 "Does not validate input tag names, attribute names, or attribute values."
