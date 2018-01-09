@@ -77,7 +77,8 @@ function validatevalue(v::Validate{true}, tag, attr, value::Number)
 end
 validatevalue(v, tag, attr, value) = value
 
-snake(camel) = join(islower(c) ? c : '-' * lowercase(c) for c in camel)
+snake(camel::String) = join(islower(c) ? c : '-' * lowercase(c) for c in camel)
+snake(camel::Symbol) = snake(String(camel))
 
 function validateattrs(v::Validate, tag, kws)
     attrs = Dict{String, Any}()
@@ -89,7 +90,7 @@ function validateattrs(v::Validate, tag, kws)
             error("$sym is not a valid attribute name: $(stringify(tag, sym, value))")
         end
         validatevalue(v, tag, attr, value)
-        valid = attr ∈ v.tag_to_attrs[tag] || attr ∈ v.tag_to_attrs["*"]
+        valid = startswith(attr, "data-") || attr ∈ v.tag_to_attrs[tag] || attr ∈ v.tag_to_attrs["*"]
         valid || error("$attr is not a valid attribute name for $tag tags")
         attrs[attr] = value
     end
@@ -152,7 +153,7 @@ flat(x) = (x,)
 # Classes specified this way will append to an existing class if present.
 function Base.getproperty(x::Node, class::Symbol)
     a = attrs(x)
-    x(class=haskey(a, "class") ? string(a["class"], " ", snake(class)) : string(snake(class)))
+    x(class=haskey(a, "class") ? string(a["class"], " ", snake(class)) : snake(class))
 end
 
 """
