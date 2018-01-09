@@ -77,8 +77,8 @@ function validatevalue(v::Validate{true}, tag, attr, value::Number)
 end
 validatevalue(v, tag, attr, value) = value
 
-snake(camel::String) = join(islower(c) ? c : '-' * lowercase(c) for c in camel)
-snake(camel::Symbol) = snake(String(camel))
+kebab(camel::String) = join(islower(c) ? c : '-' * lowercase(c) for c in camel)
+kebab(camel::Symbol) = kebab(String(camel))
 
 function validateattrs(v::Validate, tag, kws)
     attrs = Dict{String, Any}()
@@ -86,7 +86,7 @@ function validateattrs(v::Validate, tag, kws)
         attr = get(v.sym_to_name, sym) do
             s = string(sym)
             # valid: dataFoo => data-foo, data123 => data-123; invalid: datafoo
-            contains(s, r"^data[0-9A-Z]") && return "data-" * lowercase(s[5]) * snake(s[6:end])
+            contains(s, r"^data[0-9A-Z]") && return "data-" * lowercase(s[5]) * kebab(s[6:end])
             error("$sym is not a valid attribute name: $(stringify(tag, sym, value))")
         end
         validatevalue(v, tag, attr, value)
@@ -98,7 +98,7 @@ function validateattrs(v::Validate, tag, kws)
 end
 
 function validateattrs(v::NoValidate, tag, kws)
-    Dict{String, Any}(snake(string(sym)) => value for (sym, value) in pairs(kws))
+    Dict{String, Any}(kebab(string(sym)) => value for (sym, value) in pairs(kws))
 end
 
 # Nice printing in errors
@@ -153,7 +153,7 @@ flat(x) = (x,)
 # Classes specified this way will append to an existing class if present.
 function Base.getproperty(x::Node, class::Symbol)
     a = attrs(x)
-    x(class=haskey(a, "class") ? string(a["class"], " ", snake(class)) : snake(class))
+    x(class=haskey(a, "class") ? string(a["class"], " ", kebab(class)) : kebab(class))
 end
 
 """
