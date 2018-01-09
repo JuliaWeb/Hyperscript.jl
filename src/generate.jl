@@ -46,12 +46,15 @@ List of attributes defined by [ARIA](https://www.w3.org/TR/aria-in-html/).
 const ARIA_EXTRAS = load("aria.json")
 
 # Section M.2: https://www.w3.org/TR/SVG/attindex.html
+# Note: These missing elements have been added in a subsequent release (1.2.1) of wooorm's svg-element-attrubutes
 const SVG_PRESENTATION_ATTRIBUTES = ["alignment-baseline", "baseline-shift", "clip-path", "clip-rule", "clip", "color-interpolation-filters", "color-interpolation", "color-profile", "color-rendering", "color", "cursor", "direction", "display", "dominant-baseline", "enable-background", "fill-opacity", "fill-rule", "fill", "filter", "flood-color", "flood-opacity", "font-family", "font-size-adjust", "font-size", "font-stretch", "font-style", "font-variant", "font-weight", "glyph-orientation-horizontal", "glyph-orientation-vertical", "image-rendering", "kerning", "letter-spacing", "lighting-color", "marker-end", "marker-mid", "marker-start", "mask", "opacity", "overflow", "pointer-events", "shape-rendering", "stop-color", "stop-opacity", "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-opacity", "stroke-width", "stroke", "text-anchor", "text-decoration", "text-rendering", "unicode-bidi", "visibility", "word-spacing", "writing-mode"]
 const SVG_PRESENTATION_ELEMENTS   = ["a", "altGlyph", "animate", "animateColor", "circle", "clipPath", "defs", "ellipse", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite", "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feFlood", "feGaussianBlur", "feImage", "feMerge", "feMorphology", "feOffset", "feSpecularLighting", "feTile", "feTurbulence", "filter", "font", "foreignObject", "g", "glyph", "glyphRef", "image", "line", "linearGradient", "marker", "mask", "missing-glyph", "path", "pattern", "polygon", "polyline", "radialGradient", "rect", "stop", "svg", "switch", "symbol", "text", "textPath", "tref", "tspan", "use"]
 for tag in SVG_PRESENTATION_ELEMENTS
     append!(SVG_ATTRS[tag], SVG_PRESENTATION_ATTRIBUTES)
 end
 
+# Bugfix:
+push!(SVG_ATTRS["svg"], "xmlns")
 
 # Allow all ARIA attributes on all HTML and SVG elements.
 # This is over-generous.
