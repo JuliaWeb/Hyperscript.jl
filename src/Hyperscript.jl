@@ -76,22 +76,25 @@ function validatevalue(v::Validate{true}, tag, attr, value::Number)
 end
 validatevalue(v, tag, attr, value) = value
 
-function validateattrs(v::Validate, tag, nt::NamedTuple)
+isdataattr(attr) = startswith(attr, "data-")
+function validateattrs(v::Validate, tag, kws)
     attrs = Dict{String, Any}()
-    for (sym, value) in pairs(nt)
+    for (sym, value) in pairs(kws)
         attr = get(v.sym_to_name, sym) do
-            error("$(string(sym)) is not a valid attribute name: $(stringify(tag, sym, value))")
+            s = string(sym)
+            isdataattr(s) && return s
+            error("$sym is not a valid attribute name: $(stringify(tag, sym, value))")
         end
         validatevalue(v, tag, attr, value)
-        valid = attr ∈ v.tag_to_attrs[tag] || attr ∈ v.tag_to_attrs["*"]
+        valid = isdataattr(attr) || attr ∈ v.tag_to_attrs[tag] || attr ∈ v.tag_to_attrs["*"]
         valid || error("$attr is not a valid attribute name for $tag tags")
         attrs[attr] = value
     end
     attrs
 end
 
-function validateattrs(v::NoValidate, tag, nt::NamedTuple)
-    Dict{String, Any}(string(sym) => value for (sym, value) in pairs(nt))
+function validateattrs(v::NoValidate, tag, kws)
+    Dict{String, Any}(string(sym) => value for (sym, value) in pairs(kws))
 end
 
 # Nice printing in errors
@@ -115,6 +118,9 @@ tag(x::Node) = Base.getfield(x, :tag)
 attrs(x::Node) = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
 validation(x::Node) = Base.getfield(x, :validation)
+
+# This was an interesting thought, but both attrs and children support indexing so it's not clear what this should mean.
+# Base.getindex(x::Node, I...) = getindex(attrs(x), I...)
 
 # Allow extending a node using function application syntax.
 # Overrides attributes and appends children.
@@ -220,6 +226,7 @@ function render(io::IO, x)
     printescaped(io, sprint(show, mime, x))
 end
 
+# TODO: Escape the interior of CSS style and JS script tags according to different rules
 render(io::IO, x::Union{AbstractString, Char}) = printescaped(io, x)
 render(io::IO, x::Number) = printescaped(io, string(x))
 render(node::Node) = sprint(render, node)
