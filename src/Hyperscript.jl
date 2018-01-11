@@ -151,10 +151,9 @@ flat(x) = (x,)
 
 # Allow concise class attribute specification.
 # Classes specified this way will append to an existing class if present.
-function Base.getproperty(x::Node, class::Symbol)
-    a = attrs(x)
-    x(class=haskey(a, "class") ? string(a["class"], " ", kebab(class)) : kebab(class))
-end
+Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
+Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
+addclass(a, class) = haskey(a, "class") ? string(a["class"], " ", class) : class
 
 """
 `m(tag, children...; attrs)`
