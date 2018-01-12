@@ -156,7 +156,7 @@ flat(x) = (x,)
 # Classes specified this way will append to an existing class if present.
 Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
 Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
-addclass(a, class) = haskey(a, "class") ? string(a["class"], " ", class) : class
+addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
 
 """
 `m(tag, children...; attrs)`
