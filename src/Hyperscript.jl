@@ -90,7 +90,8 @@ function validateattrs(v::Validate, tag, kws)
             error("$sym is not a valid attribute name: $(stringify(tag, sym, value))")
         end
         validatevalue(v, tag, attr, value)
-        valid = startswith(attr, "data-") || attr ∈ v.tag_to_attrs[tag] || attr ∈ v.tag_to_attrs["*"]
+        # Check global attributes first; some tags accept no other attributes and thus don't exist in `v.tag_to_attrs`
+        valid = startswith(attr, "data-") || attr ∈ v.tag_to_attrs["*"] || attr ∈ v.tag_to_attrs[tag]
         valid || error("$attr is not a valid attribute name for $tag tags")
         attrs[attr] = value
     end
