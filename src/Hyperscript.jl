@@ -1,3 +1,5 @@
+# TODO: Document div.fooBar, div."fooBar", and div(fooBar=baz). [auto-kebabing and string properties]
+
 __precompile__()
 
 module Hyperscript
