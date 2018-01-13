@@ -58,6 +58,9 @@ end
 struct NoValidate <: Validation
 end
 
+struct ValidateCSS <: Validation
+end
+
 "Validates generously against the combination of HTML and SVG."
 const VALIDATE_COMBINED = Validate{true}("HTML or SVG", COMBINED_TAGS, COMBINED_ATTRS, COMBINED_ATTR_NAMES)
 
@@ -67,11 +70,13 @@ const VALIDATE_SVG = Validate{true}("SVG", SVG_TAGS, SVG_ATTRS, SVG_ATTR_NAMES)
 "Validates generously against the combination of HTML 4, W3C HTML 5, and WHATWG HTML 5."
 const VALIDATE_HTML = Validate{true}("HTML", HTML_TAGS, HTML_ATTRS, HTML_ATTR_NAMES)
 
+
 function validatetag(v::Validate, tag)
     tag ∈ v.tags || error("$tag is not a valid $(v.name) tag")
     tag
 end
 validatetag(v::NoValidate, tag) = tag
+validatetag(v::ValidateCSS, tag) = tag # todo
 
 function validatevalue(v::Validate{true}, tag, attr, value::Number)
     isnan(value) && error("A NaN value was passed to an attribute: $(stringify(tag, attr, value))")
@@ -101,6 +106,10 @@ function validateattrs(v::Validate, tag, kws)
 end
 
 function validateattrs(v::NoValidate, tag, kws)
+    Dict{String, Any}(kebab(string(sym)) => value for (sym, value) in pairs(kws))
+end
+
+function validateattrs(v::ValidateCSS, tag, kws) # todo
     Dict{String, Any}(kebab(string(sym)) => value for (sym, value) in pairs(kws))
 end
 
@@ -187,6 +196,7 @@ m(tag, children...; attrs...)                = Node(VALIDATE_COMBINED, tag, chil
 m_svg(tag, children...; attrs...)            = Node(VALIDATE_SVG, tag, children, attrs)
 m_html(tag, children...; attrs...)           = Node(VALIDATE_HTML, tag, children, attrs)
 m_novalidate(tag, children...; attrs...)     = Node(NoValidate(), tag, children, attrs)
+m_css(tag, children...; attrs...)            = Node(ValidateCSS(), tag, children, attrs)
 
 """
 Macro for concisely declaring a number of tags in global scope.
@@ -227,7 +237,7 @@ printescaped(io, x, replacements=HTML_ESCAPES) = for c in x
     print(io, get(replacements, c, c))
 end
 
-function render(io::IO, x)
+function render(io::IO, x) # todo: figure out how to integrate css escape
     mime = MIME(mimewritable(MIME("text/html"), x) ? "text/html" : "text/plain")
     printescaped(io, sprint(show, mime, x))
 end
@@ -255,7 +265,26 @@ function render(io::IO, node::Node)
     end
 end
 
+function render(io::IO, node::Node{ValidateCSS})
+    print(io, tag(node), " {\n")
+    for (k, v) in pairs(attrs(node))
+        print(io, " ", k, ": ", v, ";\n")
+        # todo: css escape
+        # printescaped(io, v, ATTR_ESCAPES)
+    end
+    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
+    print(io, "}\n")
+
+    for child in children(node)
+        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+        render(io, Node{validation(child)}(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
+    end
+
+end
+
 Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
 Base.show(io::IO, node::Node) = render(io, node)
+
+@show m_css("span.foo", thingyMaJig=3)
 
 end # module
