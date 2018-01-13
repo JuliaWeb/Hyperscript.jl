@@ -277,7 +277,7 @@ function render(io::IO, node::Node{ValidateCSS})
 
     for child in children(node)
         @assert typeof(child) <: Node "CSS child elements must be `Node`s."
-        render(io, Node{validation(child)}(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
+        render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
     end
 
 end
@@ -285,6 +285,6 @@ end
 Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
 Base.show(io::IO, node::Node) = render(io, node)
 
-@show m_css("span.foo", thingyMaJig=3)
+@show m_css("span", thingyMaJig=3, m_css(".left", float="left"), m_css(".right", float="right"))
 
 end # module
