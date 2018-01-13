@@ -1,6 +1,6 @@
 The Hyperscript.jl package is licensed under the MIT "Expat" License:
 
-> Copyright (c) 2017: Yuri Vishnevsky.
+> Copyright (c) 2018: Yuri Vishnevsky.
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
