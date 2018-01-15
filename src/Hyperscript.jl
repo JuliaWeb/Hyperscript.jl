@@ -5,7 +5,7 @@ __precompile__()
 module Hyperscript
 
 using Unicode
-export m, @tags
+export m, c, @tags
 
 include("constants.jl")
 
@@ -196,7 +196,8 @@ m(tag, children...; attrs...)                = Node(VALIDATE_COMBINED, tag, chil
 m_svg(tag, children...; attrs...)            = Node(VALIDATE_SVG, tag, children, attrs)
 m_html(tag, children...; attrs...)           = Node(VALIDATE_HTML, tag, children, attrs)
 m_novalidate(tag, children...; attrs...)     = Node(NoValidate(), tag, children, attrs)
-m_css(tag, children...; attrs...)            = Node(ValidateCSS(), tag, children, attrs)
+
+css(tag, children...; attrs...)              = Node(ValidateCSS(), tag, children, attrs)
 
 """
 Macro for concisely declaring a number of tags in global scope.
@@ -268,7 +269,7 @@ end
 function render(io::IO, node::Node{ValidateCSS})
     print(io, tag(node), " {\n")
     for (k, v) in pairs(attrs(node))
-        print(io, " ", k, ": ", v, ";\n")
+        print(io, "  ", k, ": ", v, ";\n")
         # todo: css escape
         # printescaped(io, v, ATTR_ESCAPES)
     end
@@ -285,6 +286,6 @@ end
 Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
 Base.show(io::IO, node::Node) = render(io, node)
 
-@show m_css("span", thingyMaJig=3, m_css(".left", float="left"), m_css(".right", float="right"))
+# @show css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
 
 end # module
