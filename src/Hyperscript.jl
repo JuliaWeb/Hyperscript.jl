@@ -1,4 +1,5 @@
 # TODO: Document div.fooBar, div."fooBar", and div(fooBar=baz). [auto-kebabing and string properties]
+# Thought: What if we always used > selectors and nested CSS children inside the DOM tree — does that solve cascading issues?
 
 __precompile__()
 
