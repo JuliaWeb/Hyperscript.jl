@@ -1,12 +1,50 @@
+#=
+    css is *per component*, not *per instance*
+    make a `rule`, for css rules? `ssrule` `cssrule`
+    maybe
+        # these need non-colliding names
+        struct Foo end
+        html(::Foo) = ...
+        style(::Foo) = css(...) or ss(...) or a combination of both
+
+        * components are structs and provide natural cascade boundaries
+
+
+        -or-
+
+        streamgraph(x, y) = ...
+        html(::typeof(streamgraph)) = ...
+        css(::typeof(streamgraph)) = ...
+
+        * does not provide natural cascade boundaries
+
+        the way you scope is invent a data-hyperscript-id-xxxx, then
+        append it to every child in every selector;
+
+            div p[data-hyperscript-id-xxxx] { ... }
+
+
+
+=#
 # TODO: Document div.fooBar, div."fooBar", and div(fooBar=baz). [auto-kebabing and string properties]
 # Thought: What if we always used > selectors and nested CSS children inside the DOM tree — does that solve cascading issues?
+# Thought: Consider the candidate tree relationships for a `css` node:
+# - it can be the parent, applying its style to all children (immediate?)
+# - it can be a sibling, applying its style to all siblings
+# - in any case, there should be a way to "shield" a child component
+# - we can scope using data-attrs:
+# :global([my-attr="something"]) {...}
+# .my-class [my-attr="something"] {...}
+# - note from svelte: Scoped styles are not dynamic – they are shared
+# between all instances of a component.
+# todo
+#   css and html string macros w/ sublime highlighting scopes
 
 __precompile__()
-
 module Hyperscript
 
 using Unicode
-export m, c, @tags
+export m, css, @tags
 
 include("constants.jl")
 
