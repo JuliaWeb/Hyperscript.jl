@@ -411,11 +411,11 @@ Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
 Base.show(io::IO, node::Node) = render(io, node)
 
 # @show css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
-xss = css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
-style = styled(xss)
-html = m("div", m("span", "hi"))
+# xss = css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
+# style = styled(xss)
+# html = m("div", m("span", "hi"))
 
-@show style
-@show style(html)
+# @show style
+# @show style(html)
 
 end # module
