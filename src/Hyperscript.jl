@@ -1,3 +1,5 @@
+# how does node equality work? important for e.g. deduplicating css styles for inclusion in the <head>
+
 #=
     css is *per component*, not *per instance*
     make a `rule`, for css rules? `ssrule` `cssrule`
@@ -26,6 +28,7 @@
 
 
 =#
+
 # TODO: Document div.fooBar, div."fooBar", and div(fooBar=baz). [auto-kebabing and string properties]
 # Thought: What if we always used > selectors and nested CSS children inside the DOM tree — does that solve cascading issues?
 # Thought: Consider the candidate tree relationships for a `css` node:
@@ -108,7 +111,6 @@ const VALIDATE_SVG = Validate{true}("SVG", SVG_TAGS, SVG_ATTRS, SVG_ATTR_NAMES)
 
 "Validates generously against the combination of HTML 4, W3C HTML 5, and WHATWG HTML 5."
 const VALIDATE_HTML = Validate{true}("HTML", HTML_TAGS, HTML_ATTRS, HTML_ATTR_NAMES)
-
 
 function validatetag(v::Validate, tag)
     tag ∈ v.tags || error("$tag is not a valid $(v.name) tag")
@@ -205,6 +207,89 @@ flat(x) = (x,)
 Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
 Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
+
+# todo: what do we do with other kinds of things that flatten into non-nodes?
+# e.g. strings, numbers are simple
+# but what if we have some other kind of Object that turns into an html tree when rendered... maybe that is just at a
+# different level of abstraction and our styles don't leak into those either.
+
+
+
+
+
+struct StyledNode
+    node
+end
+Base.show(io::IO, ::MIME"text/html", x::StyledNode) = render(io, x.node)
+
+struct Style
+    id
+    node
+
+    recursecss(id, css) = css
+    function recursecss(id, css::Node{V}) where V <: Validation
+        Node{V}(
+            isempty(attrs(css)) ? tag(css) : tag(css) * "[data-styled=$id]",
+            attrs(css),
+            recursecss.(id, children(css)),
+            validation(css)
+        )
+    end
+
+    function Style(id, css)
+        new(
+            id,
+            m("style", # type="text/css", # come 1.0
+                Node{typeof(validation(css))}(
+                    tag(css) * "[data-styled-root=$id]",
+                    attrs(css),
+                    recursecss.(id, children(css)),
+                    validation(css)
+                )
+            )
+        )
+    end
+end
+
+Base.show(io::IO, ::MIME"text/html", x::Style) = render(io, x.node)
+
+
+recursehtml(id, html) = html
+recursehtml(id, x::StyledNode) = x
+function recursehtml(id, html::Node{V}) where V <: Validation
+    Node{V}(tag(html), push!(copy(attrs(html)), "data-styled" => id), recursehtml.(id, children(html)), validation(html))
+end
+
+function (s::Style)(html)
+    recursehtml(
+        s.id,
+        html(dataStyled=s.id, dataStyledRoot=s.id)
+    )
+end
+
+_styleid = 0 # todo: uuid-ish
+function styled(css)
+    global _styleid
+    Style(_styleid += 1, css)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+# we don't do styled(css, html) since the ids need to be per-style object ('component', e.g. streamgraph), not style instance.
+
+
+
+
 
 """
 `m(tag, children...; attrs)`
@@ -326,5 +411,11 @@ Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
 Base.show(io::IO, node::Node) = render(io, node)
 
 # @show css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
+xss = css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
+style = styled(xss)
+html = m("div", m("span", "hi"))
+
+@show style
+@show style(html)
 
 end # module
