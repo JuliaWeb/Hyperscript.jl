@@ -239,7 +239,7 @@ struct Style
     function Style(id, css)
         new(
             id,
-            m("style", # type="text/css", # come 1.0
+            m("style", id="styled-$id", # type="text/css", # come 1.0
                 Node{typeof(validation(css))}(
                     tag(css) * "[data-styled-root=$id]",
                     attrs(css),
