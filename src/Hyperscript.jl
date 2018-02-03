@@ -261,7 +261,6 @@ end
 
 (s::Style)(x::Node) = add_id_attr(s.id, x(dataStyled=s.id))
 
-
 """
 `m(tag, children...; attrs)`
 
