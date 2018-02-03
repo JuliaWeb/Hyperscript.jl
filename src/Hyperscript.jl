@@ -47,7 +47,7 @@ __precompile__()
 module Hyperscript
 
 using Unicode
-export m, css, @tags
+export m, css, @tags, Style
 
 include("constants.jl")
 
@@ -208,87 +208,58 @@ Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(clas
 Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
 
-# todo: what do we do with other kinds of things that flatten into non-nodes?
-# e.g. strings, numbers are simple
-# but what if we have some other kind of Object that turns into an html tree when rendered... maybe that is just at a
-# different level of abstraction and our styles don't leak into those either.
-
-
-
-
-
 struct StyledNode
-    node
+    node::Node
 end
-Base.show(io::IO, ::MIME"text/html", x::StyledNode) = render(io, x.node)
+render(io::IO, x::StyledNode) = render(io, x.node)
 
 struct Style
-    id
-    node
+    id::Int
+    nodes
 
-    recursecss(id, css) = css
-    function recursecss(id, css::Node{V}) where V <: Validation
-        Node{V}(
-            isempty(attrs(css)) ? tag(css) : tag(css) * "[data-styled=$id]",
+    function add_id_selector(id, css::Node{ValidateCSS})
+        Node{ValidateCSS}(
+            isempty(attrs(css)) ? tag(css) : tag(css) * "[data-styled='$id']",
             attrs(css),
-            recursecss.(id, children(css)),
+            add_id_selector.(id, children(css)),
             validation(css)
         )
     end
 
-    function Style(id, css)
-        new(
-            id,
-            m("style", id="styled-$id", # type="text/css", # come 1.0
-                Node{typeof(validation(css))}(
-                    tag(css) * "[data-styled-root=$id]",
-                    attrs(css),
-                    recursecss.(id, children(css)),
-                    validation(css)
-                )
-            )
-        )
+    Style(id::Int, cssnodes) = new(id, add_id_selector.(id, cssnodes))
+end
+
+function render(io::IO, x::Style)
+    for node in x.nodes
+        render(io, node)
     end
 end
 
-Base.show(io::IO, ::MIME"text/html", x::Style) = render(io, x.node)
-
-
-recursehtml(id, html) = html
-recursehtml(id, x::StyledNode) = x
-function recursehtml(id, html::Node{V}) where V <: Validation
-    Node{V}(tag(html), push!(copy(attrs(html)), "data-styled" => id), recursehtml.(id, children(html)), validation(html))
+_styleid = 0 # todo: something more thread-safe
+function Style(cssnodes...)
+    global _styleid
+    Style(_styleid += 1, cssnodes)
 end
 
-function (s::Style)(html)
-    recursehtml(
-        s.id,
-        html(dataStyled=s.id, dataStyledRoot=s.id)
+# note: this definition means that any "renderable" objects (such as numbers, or more
+# complex objects) don't get styles applied, just like `StyledNode`s. Currently those
+# can't actually render non-escaped HTML anyway, which we may want to revisit (or
+# perhaps not)
+add_id_attr(id, x) = x
+
+add_id_attr(id, x::StyledNode) = x
+function add_id_attr(id, html::Node{V}) where V <: Validation
+    StyledNode(
+        Node{V}(
+            tag(html),
+            push!(copy(attrs(html)), "data-styled" => id),
+            add_id_attr.(id, children(html)),
+            validation(html)
+        )
     )
 end
 
-_styleid = 0 # todo: uuid-ish
-function styled(css)
-    global _styleid
-    Style(_styleid += 1, css)
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-# we don't do styled(css, html) since the ids need to be per-style object ('component', e.g. streamgraph), not style instance.
-
-
-
+(s::Style)(x::Node) = add_id_attr(s.id, x(dataStyled=s.id))
 
 
 """
@@ -371,6 +342,7 @@ end
 render(io::IO, x::Union{AbstractString, Char}) = printescaped(io, x)
 render(io::IO, x::Number) = printescaped(io, string(x))
 render(node::Node) = sprint(render, node)
+
 function render(io::IO, node::Node)
     print(io, "<", tag(node))
     for (k, v) in pairs(attrs(node))
