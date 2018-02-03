@@ -208,7 +208,10 @@ Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(clas
 Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
 
-struct StyledNode
+# A `StyledNode` is returned from the application of a `Style` to a `Node`.
+# `StyledNode` serves as a cascade barrier — parent styles do not affect nested "components".
+# Styles are either global or scoped to the immediate (non-nested) HTML nodes in a component.
+struct StyledNode # todo: rename to `Component`?
     node::Node
 end
 render(io::IO, x::StyledNode) = render(io, x.node)
@@ -249,17 +252,15 @@ add_id_attr(id, x) = x
 
 add_id_attr(id, x::StyledNode) = x
 function add_id_attr(id, html::Node{V}) where V <: Validation
-    StyledNode(
-        Node{V}(
-            tag(html),
-            push!(copy(attrs(html)), "data-styled" => id),
-            add_id_attr.(id, children(html)),
-            validation(html)
-        )
+    Node{V}(
+        tag(html),
+        push!(copy(attrs(html)), "data-styled" => id),
+        add_id_attr.(id, children(html)),
+        validation(html)
     )
 end
 
-(s::Style)(x::Node) = add_id_attr(s.id, x(dataStyled=s.id))
+(s::Style)(x::Node) = StyledNode(add_id_attr(s.id, x(dataStyled=s.id)))
 
 """
 `m(tag, children...; attrs)`
