@@ -125,7 +125,7 @@ function validatevalue(v::Validate{true}, tag, attr, value::Number)
 end
 validatevalue(v, tag, attr, value) = value
 
-kebab(camel::String) = join(islower(c) ? c : '-' * lowercase(c) for c in camel)
+kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 kebab(camel::Symbol) = kebab(String(camel))
 
 function validateattrs(v::Validate, tag, kws)
