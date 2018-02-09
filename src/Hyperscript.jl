@@ -49,7 +49,7 @@ module Hyperscript
 using Unicode
 export m, css, @tags, Style
 
-include("constants.jl")
+include(joinpath(@__DIR__, "constants.jl"))
 
 # To reduce redundancy, we create some constant values here
 const COMBINED_ATTRS = merge(unique∘vcat, SVG_ATTRS, HTML_ATTRS)
