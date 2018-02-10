@@ -1,5 +1,8 @@
 # how does node equality work? important for e.g. deduplicating css styles for inclusion in the <head>
 
+# todo: support attributes without values. (use `nothing` as a "just include this attribute"?)
+# todo: do we validate against odd characters in the tag name?
+
 #=
     css is *per component*, not *per instance*
     make a `rule`, for css rules? `ssrule` `cssrule`
@@ -47,9 +50,20 @@ __precompile__()
 module Hyperscript
 
 using Unicode
-export m, css, @tags, Style
+export m, css, @tags, Style, px
 
 include(joinpath(@__DIR__, "constants.jl"))
+
+# Experimental: Unexported units for more concise css specification
+struct Px end
+const px = Px()
+Base.:*(x::Number, y::Px) = string(x, "px")
+struct Em end
+const em = Em()
+Base.:*(x::Number, y::Em) = string(x, "em")
+struct Rem end
+const rem = Rem()
+Base.:*(x::Number, y::Rem) = string(x, "rem")
 
 # To reduce redundancy, we create some constant values here
 const COMBINED_ATTRS = merge(unique∘vcat, SVG_ATTRS, HTML_ATTRS)
@@ -333,15 +347,58 @@ printescaped(io, x, replacements=HTML_ESCAPES) = for c in x
     print(io, get(replacements, c, c))
 end
 
-function render(io::IO, x) # todo: figure out how to integrate css escape
+function render(io::IO, x) # todo: figure out how to integrate css escape and js escape
     mime = MIME(mimewritable(MIME("text/html"), x) ? "text/html" : "text/plain")
     printescaped(io, sprint(show, mime, x))
 end
 
 # TODO: Escape the interior of CSS style and JS script tags according to different rules
-render(io::IO, x::Union{AbstractString, Char}) = printescaped(io, x)
-render(io::IO, x::Number) = printescaped(io, string(x))
+
+# NoValidate
+
+
+render(io::IO, x::Union{AbstractString, Char, Number}) = printescaped(io, x)
 render(node::Node) = sprint(render, node)
+
+function render(io::IO, node::Node{ValidateCSS})
+    print(io, tag(node), " {\n")
+    for (k, v) in pairs(attrs(node))
+        print(io, "  ", k, ": ", v, ";\n")
+        # todo: css escape
+        # printescaped(io, v, ATTR_ESCAPES)
+    end
+    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
+    print(io, "}\n")
+
+    for child in children(node)
+        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+        render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
+    end
+end
+
+# This is needed for the non-validating render.
+render(io::IO, x::Union{AbstractString, Char, Number}, ::NoValidate) = print(io, x)
+
+function render(io::IO, node::Node{NoValidate})
+    # TODO: This is a hacky implementation of non-validating output for m_novalidate. Rewrite.
+    print(io, "<", tag(node))
+    for (k, v) in pairs(attrs(node))
+        print(io, " ", k, "=\"")
+        print(io, v)
+        print(io, "\"")
+    end
+    if isvoid(tag(node))
+        @assert isempty(children(node))
+        print(io, " />")
+    else
+        print(io, ">")
+        for child in children(node)
+            # todo: is it OK that we use the parent's no-validate status to print the node's children, potentially recursively?
+            render(io, child, validation(node))
+        end
+        print(io, "</", tag(node), ">")
+    end
+end
 
 function render(io::IO, node::Node)
     print(io, "<", tag(node))
@@ -360,23 +417,6 @@ function render(io::IO, node::Node)
         end
         print(io, "</", tag(node), ">")
     end
-end
-
-function render(io::IO, node::Node{ValidateCSS})
-    print(io, tag(node), " {\n")
-    for (k, v) in pairs(attrs(node))
-        print(io, "  ", k, ": ", v, ";\n")
-        # todo: css escape
-        # printescaped(io, v, ATTR_ESCAPES)
-    end
-    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
-    print(io, "}\n")
-
-    for child in children(node)
-        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
-        render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
-    end
-
 end
 
 Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
