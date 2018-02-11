@@ -391,6 +391,7 @@ function render(io::IO, node::Node{ValidateCSS})
 end
 
 # This is needed for the non-validating render.
+# This is totally a hack — validation is separate from escaping. Detangle in the future.
 render(io::IO, x::Union{AbstractString, Char, Number}, ::NoValidate) = print(io, x)
 
 function render(io::IO, node::Node{NoValidate})
