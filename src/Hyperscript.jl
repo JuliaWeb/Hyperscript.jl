@@ -2,7 +2,7 @@
 
 # todo: support attributes without values. (use `nothing` as a "just include this attribute"?)
 # todo: do we validate against odd characters in the tag name?
-
+# todo: add a MixedUnits so that string(1px + 2em + 1px) == "calc(2px + 2em)"
 #=
     css is *per component*, not *per instance*
     make a `rule`, for css rules? `ssrule` `cssrule`
@@ -174,7 +174,9 @@ stringify(tag, attr, value) = string("<", tag, " ", attr, "=\"", value, "\"", is
 
 ## Node representation and generation
 
-struct Node{V<:Validation}
+abstract type AbstractNode end
+
+struct Node{V<:Validation} <: AbstractNode
     tag::String
     attrs::Dict{String, Any}
     children::Vector{Any}
@@ -225,9 +227,18 @@ addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", cl
 # A `StyledNode` is returned from the application of a `Style` to a `Node`.
 # `StyledNode` serves as a cascade barrier — parent styles do not affect nested "components".
 # Styles are either global or scoped to the immediate (non-nested) HTML nodes in a component.
-struct StyledNode # todo: rename to `Component`?
+struct StyledNode <: AbstractNode # todo: rename to `Component`?
     node::Node
 end
+
+# delegate
+(x::StyledNode)(cs...; as...) = StyledNode(x.node(cs...; as...))
+tag(x::StyledNode) = Base.getfield(x.node, :tag)
+attrs(x::StyledNode) = Base.getfield(x.node, :attrs)
+children(x::StyledNode) = Base.getfield(x.node, :children)
+validation(x::StyledNode) = Base.getfield(x.node, :validation)
+
+
 render(io::IO, x::StyledNode) = render(io, x.node)
 
 struct Style
@@ -356,6 +367,9 @@ end
 
 # NoValidate
 
+# Render nothing as, well, nothing.
+printescaped(io, ::Nothing, replacements) = nothing
+render(io::IO, ::Nothing) = ""
 
 render(io::IO, x::Union{AbstractString, Char, Number}) = printescaped(io, x)
 render(node::Node) = sprint(render, node)
