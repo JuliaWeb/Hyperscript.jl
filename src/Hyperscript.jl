@@ -245,6 +245,7 @@ struct Style
     id::Int
     nodes
 
+    # TODO: How does this handle @media query selectors?
     function add_id_selector(id, css::Node{ValidateCSS})
         Node{ValidateCSS}(
             isempty(attrs(css)) ? tag(css) : tag(css) * "[data-styled='$id']",
@@ -381,12 +382,23 @@ function render(io::IO, node::Node{ValidateCSS})
         # todo: css escape
         # printescaped(io, v, ATTR_ESCAPES)
     end
-    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
+
+    ismedia = startswith(tag(node), "@media")
+    if ismedia
+        for child in children(node)
+            render(io, child)
+        end
+    end
+
     print(io, "}\n")
 
-    for child in children(node)
-        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
-        render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
+    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
+
+    if !ismedia
+        for child in children(node)
+            @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+            render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
+        end
     end
 end
 
