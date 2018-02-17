@@ -49,6 +49,13 @@ function flat(xs::Union{Base.Generator, Tuple, Array})
 end
 flat(x) = (x,)
 
+# todo: is this making too many allocations?
+vn_children(ctx, tag, children) =
+    validate_child.(ctx, tag, normalize_child.(ctx, tag, flat(children)))
+
+vn_attrs(ctx, tag, attrs) =
+    (validate_attr(ctx, tag, normalize_attr(ctx, tag, attr)) for attr in attrs)
+
 struct Node
     ctx::Ctx
     tag::String
@@ -56,12 +63,7 @@ struct Node
     attrs::Dict{String, String}
     function Node(ctx, tag, children, attrs)
         tag = validate_tag(ctx, normalize_tag(ctx, tag))
-        new(
-            ctx,
-            tag,
-            validate_child.(ctx, tag, normalize_child.(ctx, tag, flat(children))),
-            Dict(validate_attr(ctx, tag, normalize_attr(ctx, tag, attr)) for attr in attrs),
-        )
+        new(ctx, tag, vn_children(ctx, tag, children), Dict(vn_attrs(ctx, tag, attrs)))
     end
 end
 
@@ -70,9 +72,18 @@ attrs(x::Node) = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
 context(x::Node) = Base.getfield(x, :ctx)
 
+function (node::Node)(cs...; as...)
+    Node(
+        context(node),
+        tag(node),
+        isempty(as) ? attrs(node)    : merge(attrs(node), vn_attrs(as)),
+        isempty(cs) ? children(node) : prepend!(vn_children(cs), children(node))
+    )
+end
+
 function render(io::IO, ctx::Ctx{HTML}, node::Node)
-    nodetag = escape_tag(ctx, tag(node))
-    print(io, "<", nodetag)
+    esctag = escape_tag(ctx, tag(node))
+    print(io, "<", esctag)
     for attr in pairs(attrs(node))
         (name, value) = escape_attr(ctx, attr)
         print(io, " ", name, "=\"", value, "\"")
@@ -85,16 +96,28 @@ function render(io::IO, ctx::Ctx{HTML}, node::Node)
         for child in children(node)
             render(io, ctx, child)
         end
-        print(io, "</", nodetag,  ">")
+        print(io, "</", esctag,  ">")
     end
 end
 
 Base.show(io::IO, node::Node) = render(io, context(node), node)
 
-node = Node(Ctx{HTML}(), "div", [
-    Node(Ctx{HTML}(), "div", [], Dict("moo" => "false"))
-], Dict("align" => "true"))
+m(tag, children...; attrs...) = Node(Ctx{HTML}(), tag, children, attrs)
+
+# HTML
+# note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
+normalize_attr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => string(attr.second)
+
+node = m("div", align="foo", m("div", moo="false", boo=true))
 @show node
+
+# 1.
+# Node(Ctx{HTML}(), "div", [
+#     Node(Ctx{HTML}(), "div", [], Dict("moo" => "false"))
+# ], Dict("align" => "true"))
+# 2.
+# m("div", align="foo", m("div", moo="false"))
+
 
 #= questions
 
@@ -103,7 +126,9 @@ at what level do we want to stringify things? probably early, so we can validate
 what do we want to use for stringification? `string()` uses `print`.
 
 how do we turn a single attr into multiple attrs, e.g. -webkit- and -moz- versions of a css rule?
+    maybe we do this at output time.
 
+does order matter for css rules? yes, but julia's keyword-splatting & rules about repeated keywords just make it all work out.
 =#
 
 
