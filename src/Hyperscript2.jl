@@ -1,6 +1,49 @@
+# idea: use clojure-style :attr val :attr val pairs for the concise macro. question: how do things nest?
+
 isnothing(x) = x == nothing
 kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 kebab(camel::Symbol) = kebab(String(camel))
+
+#=  the pipeline
+
+    normalize => validate => escape => render
+
+    actions:  normalize / validate / escape / render
+    subjects: tag / attrname / attrvalue / child
+    contexts: CSS / HTML / SVG + validation/escape options (treat nan as invalid?)
+
+    further nuance: specific versions of the specs
+
+    validate_tag(::CSS, tag)
+    validate_attr_name(::CSS, tag, attr_name)
+    validate_attr_value(::CSS, tag, attr_name, attr_value)
+    validate_child(::CSS, tag, child)
+
+
+    normalize_tag
+    normalize_attr(::CSS, name, value)
+    normalize_child(::CSS, name, value)
+
+
+
+    normalize_attr_name(::CSS,
+    normalize_attr_value(:CSS,
+    normalize_child(::CSS
+=#
+
+
+#= odd cases
+
+code in a <script>
+    js or otherwise
+
+css in a <style>
+
+nested svg in a html
+nested html inside a foreignObject in a svg
+
+
+=#
 
 #=
 design note
@@ -24,24 +67,46 @@ concerns
     deal with void tags [but only in html/svg!]
 
     html, svg, css
-    scoped css
+    scoped css — an orthogonal toolkit for creating scoped-css "components"
     css prefixing
-    media queries
+    media queries – use tree nesting behavior rather than selector flattening to render
     prettyprinting with indentation
-    html/svg attributes without value (use nothing)
+    html/svg attributes without value (use nothing) — but not with css.
     html escaping for html/svg
     different escaping rules for css and script tags
 
     think about what it might be like to make this do dom nodes rather than html nodes -- e.g. class -> className
 =#
 
-#=
-    parameters
 
+
+#=
+    normalization
+        attribute names
+        attribute values
+        child values
+
+    validation
+        attribute names
+        attribute values
+        child values
+
+    escaping behavior
+        attribute names
+        attribute values
+        child values
+
+    allowed children - do we want to validate here, or just allow anything stringifiable?
+        attribute names
+        attribute values
+        child values
+
+
+    parameters
         content escaping on output
             attributes - e.g. attribute escape
             children - e.g. html escape, css/script escape
-        transformation on input
+        normalization on input
             attributes - e.g. kebab case
             children
         allowed children
@@ -97,12 +162,21 @@ Base.show(io::IO, node::Node) = render(io, node)
         validation
     any differences betwen html/svg nodes and css nodes?
         validation
+        normalization [possibly]
         rendering
         autoprefixing [may be seen as part of rendering]
 
 
 
 =#
+
+
+#=
+    what is the most useful behavior for extending css nodes using function application syntax,
+    or otherwise reusing them? E.g. putting one existing node inside another, or splatting one in
+    (should that splat attrs?)
+=#
+
 #=
     use cases for nodes
 
