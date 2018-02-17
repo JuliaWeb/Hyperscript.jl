@@ -79,17 +79,8 @@ function (node::Node)(cs...; as...)
     )
 end
 
-indent(io::IO, n) = for _ in 1:n; print(io, '\t'); end
-
-function render(io::IO, ctx::Ctx{HTML}, x::String, indentlevel)
-    print(io, x)
-end
-
-function render(io::IO, ctx::Ctx{HTML}, node::Node, indentlevel=0) # really we want a pretty=true/false for \n and stuff
+function render(io::IO, ctx::Ctx{HTML}, node::Node)
     esctag = escape_tag(ctx, tag(node))
-
-    indent(io, indentlevel)
-
     print(io, "<", esctag)
     for attr in pairs(attrs(node))
         (name, value) = escape_attr(ctx, attr)
@@ -97,17 +88,13 @@ function render(io::IO, ctx::Ctx{HTML}, node::Node, indentlevel=0) # really we w
     end
     if isvoid(ctx, tag(node))
         @assert isempty(children(node))
-        print(io, " />\n")
+        print(io, " />")
     else
-        print(io, ">\n")
-        indent(io, indentlevel)
-
+        print(io, ">")
         for child in children(node)
-            render(io, ctx, child, indentlevel+1)
+            render(io, ctx, child)
         end
-        print(io, "\n")
-        indent(io, indentlevel)
-        print(io, "</", esctag,  ">\n")
+        print(io, "</", esctag,  ">")
     end
 end
 
@@ -121,8 +108,8 @@ m_html(tag, children...; attrs...) = Node(Ctx{HTML}(), tag, children, attrs)
 # note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
 normalize_attr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => string(attr.second)
 const m = m_html
-node = m("div", align="foo", m("div", moo="false", boo=true, "i am chile"))
-print(node)
+node = m("div", align="foo", m("div", moo="false", boo=true))
+@show node
 
 # 1.
 # Node(Ctx{HTML}(), "div", [
