@@ -1,8 +1,140 @@
+#=
+    actions:  normalize / validate / escape / render
+    subjects: tag / attr name / attr value / child
+    contexts: CSS / HTML / SVG + per-action options
+
+    Nodes are normalized and validated on input and escaped on output.
+
+
+=#
+
+# indentation
+# isvoid
+# value => val?
+
+module Hyperscript
+
+abstract type NodeKind end
+
+struct CSS <: NodeKind end
+struct HTML <: NodeKind end
+struct SVG <: NodeKind end
+
+struct Ctx{kind} end
+isvoid(ctx, tag) = false
+
+normalize(ctx, x) = x
+normalize_tag(ctx, tag) = normalize(ctx, tag)
+normalize_attr(ctx, tag, attr) = normalize(ctx, attr)
+normalize_child(ctx, tag, child) = normalize(ctx, child)
+
+
+validate(ctx, x) = x
+validate_tag(ctx, tag) = validate(ctx, tag)
+validate_attr(ctx, tag, attr) = validate(ctx, attr)
+validate_child(ctx, tag, child) = validate(ctx, child)
+
+
+escape(ctx, x) = x
+escape_tag(ctx, tag) = escape(ctx, tag)
+escape_attr(ctx, attr) = escape(ctx, attr)
+escape_child(ctx, child) = escape(ctx, child)
+
+function flat(xs::Union{Base.Generator, Tuple, Array})
+    out = []
+    for x in xs
+        append!(out, flat(x))
+    end
+    out
+end
+flat(x) = (x,)
+
+struct Node
+    ctx::Ctx
+    tag::String
+    children::Vector{Any}
+    attrs::Dict{String, String}
+    function Node(ctx, tag, children, attrs)
+        tag = validate_tag(ctx, normalize_tag(ctx, tag))
+        new(
+            ctx,
+            tag,
+            validate_child.(ctx, tag, normalize_child.(ctx, tag, flat(children))),
+            Dict(validate_attr(ctx, tag, normalize_attr(ctx, tag, attr)) for attr in attrs),
+        )
+    end
+end
+
+tag(x::Node) = Base.getfield(x, :tag)
+attrs(x::Node) = Base.getfield(x, :attrs)
+children(x::Node) = Base.getfield(x, :children)
+context(x::Node) = Base.getfield(x, :ctx)
+
+function render(io::IO, ctx::Ctx{HTML}, node::Node)
+    nodetag = escape_tag(ctx, tag(node))
+    print(io, "<", nodetag)
+    for attr in pairs(attrs(node))
+        (name, value) = escape_attr(ctx, attr)
+        print(io, " ", name, "=\"", value, "\"")
+    end
+    if isvoid(ctx, tag(node))
+        @assert isempty(children(node))
+        print(io, " />")
+    else
+        print(io, ">")
+        for child in children(node)
+            render(io, ctx, child)
+        end
+        print(io, "</", nodetag,  ">")
+    end
+end
+
+Base.show(io::IO, node::Node) = render(io, context(node), node)
+
+node = Node(Ctx{HTML}(), "div", [
+    Node(Ctx{HTML}(), "div", [], Dict("moo" => "false"))
+], Dict("align" => "true"))
+@show node
+
+#= questions
+
+at what level do we want to stringify things? probably early, so we can validate the values.
+
+what do we want to use for stringification? `string()` uses `print`.
+
+how do we turn a single attr into multiple attrs, e.g. -webkit- and -moz- versions of a css rule?
+
+=#
+
+
 # idea: use clojure-style :attr val :attr val pairs for the concise macro. question: how do things nest?
 
-isnothing(x) = x == nothing
-kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
-kebab(camel::Symbol) = kebab(String(camel))
+# isnothing(x) = x == nothing
+# kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+# kebab(camel::Symbol) = kebab(String(camel))
+
+
+#=
+
+struct NormalizeConfig end
+struct ValidateConfig end
+struct EscapeConfig end
+
+# todo: what context do the various pieces need?
+
+# Throw an error if the thing is invalid; otherwise do nothing
+function validate_tag(ctx, tag)
+end
+function validate_attr(ctx, tag, name, value)
+end
+function validate_child(ctx, tag, child)
+end
+
+# Return the escaped version of the thing.
+
+=#
+
+
 
 #=  the pipeline
 
@@ -15,8 +147,8 @@ kebab(camel::Symbol) = kebab(String(camel))
     further nuance: specific versions of the specs
 
     validate_tag(::CSS, tag)
-    validate_attr_name(::CSS, tag, attr_name)
-    validate_attr_value(::CSS, tag, attr_name, attr_value)
+    validate_attrname(::CSS, tag, attrname)
+    validate_attrvalue(::CSS, tag, attrname, attrvalue)
     validate_child(::CSS, tag, child)
 
 
@@ -26,8 +158,8 @@ kebab(camel::Symbol) = kebab(String(camel))
 
 
 
-    normalize_attr_name(::CSS,
-    normalize_attr_value(:CSS,
+    normalize_attrname(::CSS,
+    normalize_attrvalue(:CSS,
     normalize_child(::CSS
 =#
 
@@ -117,40 +249,6 @@ concerns
         might be the stylednode concept.
 =#
 
-struct Node
-    tag::String
-    children::Vector{Any}
-    attrs::Dict{String, Any}
-    Node(tag, children, attrs) = new(tag, flat(children), attrs)
-end
-
-tag(x::Node) = Base.getfield(x, :tag)
-attrs(x::Node) = Base.getfield(x, :attrs)
-children(x::Node) = Base.getfield(x, :children)
-
-# Recursively flatten generators, tuples, and arrays. Wrap scalars in a single-element tuple.
-# todo: We could do something trait-based, so custom lazy collections can opt into compatibility
-# todo: What does broadcast do? Do we want Array or AbstractArray?
-function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = []
-    for x in xs
-        append!(out, flat(x))
-    end
-    out
-end
-flat(x) = (x,)
-
-# Allow extending a node using function application syntax.
-# Overrides attributes and appends children.
-function (node::Node)(cs...; as...)
-    Node(
-        tag(node),
-        isempty(as) ? attrs(node)    : merge(attrs(node), as),
-        isempty(cs) ? children(node) : prepend!(flat(cs), children(node))
-    )
-end
-
-Base.show(io::IO, node::Node) = render(io, node)
 
 #=
     things you do with nodes
@@ -206,3 +304,25 @@ serialize = {
   };
 }
 =#
+
+
+
+# Recursively flattens generators, tuples, and arrays.
+# Wraps scalars in a single-element tuple.
+# todo: We could do something trait-based, so custom lazy collections can opt into compatibility
+# todo: What does broadcast do? Do we want Array or AbstractArray?
+# function flat
+
+#= this may only make sense for some types of nodes — or maybe not?
+function (node::Node)(cs...; as...)
+    Node(
+        tag(node),
+        isempty(as) ? attrs(node)    : merge(attrs(node), as),
+        isempty(cs) ? children(node) : prepend!(flat(cs), children(node))
+    )
+end
+=#
+
+# [Escape can directly write to io if more efficient]
+
+end # module
