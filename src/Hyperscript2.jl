@@ -4,6 +4,23 @@
     contexts: CSS / HTML / SVG + per-action options
 
     Nodes are normalized and validated on input and escaped upon output.
+
+    The core is free of mention of any specific output target; HTML/SVG/CSS
+    are implemented separately.
+
+    Contexts are loci for target-specific parameterization; e.g. `isvoid`
+    might be a function only of HTML and SVG targets.
+
+    The ctx argument in the render(io, ctx, node) method may render a node
+    in a modified context from its own — for example in order to nest one
+    type of node inside another.
+
+    ^ Not sure if this is coherent, but it feels like a potentially useful
+    source of functionality.
+
+    It is at least useful for dispatch — the context type parameters function
+    as traits.
+
 =#
 
 # indentation
@@ -19,7 +36,6 @@ struct HTML <: NodeKind end
 struct SVG <: NodeKind end
 
 struct Ctx{kind} end
-isvoid(ctx, tag) = false
 
 #=
 normalization and validation of tags, attributes, and children
@@ -41,7 +57,8 @@ validatechild(ctx, tag, child) = child
 
 escape(ctx, x) = x
 escapetag(ctx, tag) = escape(ctx, tag)
-escapeattr(ctx, attr) = escape(ctx, attr)
+escapeattrname(ctx, name) = escape(ctx, name)
+escapeattrvalue(ctx, value) = escape(ctx, value)
 escapechild(ctx, child) = escape(ctx, child)
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
@@ -53,20 +70,29 @@ function flat(xs::Union{Base.Generator, Tuple, Array})
 end
 flat(x) = (x,)
 
-# todo: are these making too many allocations?
+# todo: are these all making too many allocations?
 vn_children(ctx, tag, children) =
     validatechild.(ctx, tag, normalizechild.(ctx, tag, flat(children)))
 vn_attrs(ctx, tag, attrs) =
-    Dict(validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
+    (validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
 
-struct Node
-    ctx::Ctx
+struct Node{C <: Ctx}
+    ctx::C
     tag::String
-    children::Vector{Any}
-    attrs::Dict{String, String}
-    function Node(ctx, tag, children, attrs)
+    children::Vector{Any} # should we make this not-any but rather specialized per node? might make rendering faster for lots of same-type children
+    # we need to preserve nothing until printing.
+    # this gives another perspective:
+    # everything is _aligned_ -- all the way through the stack.
+    # from representation up here, through normalization and validation.
+    # rather than string-ing early, we can keep some things in a more type-rich format.
+    # for example, then we could provide a 'trim-numbers' for ctxs.
+    # also, if we want OTHER contexts to control our printing, then some things need
+    # to be done at print time rather than eagerly.
+    # we should do as much eagerly as is needed to give early errors. and perhaps not more.
+    attrs::Dict{String, Union{String, Nothing}} # note: nothing does not work for css!
+    function Node(ctx::C, tag, children, attrs) where C
         tag = validatetag(ctx, normalizetag(ctx, tag))
-        new(ctx, tag, vn_children(ctx, tag, children), vn_attrs(ctx, tag, attrs))
+        new{C}(ctx, tag, vn_children(ctx, tag, children), Dict(vn_attrs(ctx, tag, attrs)))
     end
 end
 
@@ -80,42 +106,77 @@ function (node::Node)(cs...; as...)
         context(node),
         tag(node),
         isempty(cs) ? children(node) : prepend!(vn_children(context(node), tag(node), cs), children(node)),
-        isempty(as) ? attrs(node)    : merge(attrs(node), vn_attrs(context(node), tag(node), as))
+        isempty(as) ? attrs(node)    : merge(attrs(node), Dict(vn_attrs(context(node), tag(node), as)))
     )
 end
 
-render(io::IO, ctx::Ctx{HTML}, x::String) = print(io, x)
+function render end
 
+###
+
+isnothing(x) = x == nothing
+kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+kebab(camel::Symbol) = kebab(String(camel))
+
+addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
+Base.getproperty(x::Node{Ctx{HTML}}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
+Base.getproperty(x::Node{Ctx{HTML}}, class::String) = x(class=addclass(attrs(x), class))
+
+# HTML
+
+
+
+isvoidtag(ctx::Ctx{HTML}, tag) = false
+
+render(io::IO, ctx::Ctx{HTML}, x) = print(io, escapechild(ctx, x))
+
+# note: how do we e.g. render css or script text unescaped?
+# something like escapechild(ctx::Ctx{HTML}, x::ScriptRaw) = x?
+
+# invariant: a node always renders in its own context.
+# the ctx argument is used only for rendering _non-nodes_ in the context of their parent node.
 function render(io::IO, ctx::Ctx{HTML}, node::Node)
-    esctag = escapetag(ctx, tag(node))
+    ctx, esctag = context(node),  escapetag(ctx, tag(node))
     print(io, "<", esctag)
-    for attr in pairs(attrs(node))
-        (name, value) = escapeattr(ctx, attr)
-        print(io, " ", name, "=\"", value, "\"")
+    for (name, value) in pairs(attrs(node))
+        print(io, " ", escapeattrname(ctx, name))
+        isnothing(value) || print(io, "=\"", escapeattrvalue(ctx, value), "\"")
     end
-    if isvoid(ctx, tag(node))
+    if isvoidtag(ctx, tag(node))
         @assert isempty(children(node))
         print(io, " />")
     else
         print(io, ">")
         for child in children(node)
-            render(io, ctx, child)
+            renderchild(io, ctx, child)
         end
         print(io, "</", esctag,  ">")
     end
 end
 
-Base.show(io::IO, node::Node) = render(io, context(node), node)
+render(io::IO, node::Node) = render(io, context(node), node)
+render(node::Node) = sprint(render, node)
+
+# Render child nodes in their own context
+renderchild(io, ctx, node::Node) = render(io, context(node), node)
+
+# Render child non-nodes in their parent's context
+renderchild(io, ctx, x) = render(io, ctx, x)
+
+Base.show(io::IO, node::Node) = render(io, node)
+# Base.show(io::IO, ::MIME"text/html",  node::Node{Ctx{HTML}}) = render(io, context(node), node)
+
 
 m_html(tag, children...; attrs...) = Node(Ctx{HTML}(), tag, children, attrs)
 
+# note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
+normalizeattr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => isnothing(attr.second) ? attr.second : string(attr.second)
+
 ###
 
-# HTML
-# note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
-normalizeattr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => string(attr.second)
 const m = m_html
-node = m("div", align="foo", m("div", moo="false", boo=true)("xx", extra=4, boo=5))
+# m("div", malign="noo"))#
+node = m("div", align="foo", m("div", moo="false", boo=true)("xx", extra=nothing, boo=5))
 @show node
 
 # 1.
@@ -136,14 +197,16 @@ how do we turn a single attr into multiple attrs, e.g. -webkit- and -moz- versio
     maybe we do this at output time.
 
 does order matter for css rules? yes, but julia's keyword-splatting & rules about repeated keywords just make it all work out.
+
+we could have a DOM node representation with e.g. className and so on, and no kebabification.
+if so, would we still want Dict{String, String} for attrs, or Dict{Symbol, String}, or even Dict{Symbol, Any}?
+
 =#
 
 
 # idea: use clojure-style :attr val :attr val pairs for the concise macro. question: how do things nest?
 
-# isnothing(x) = x == nothing
-# kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
-# kebab(camel::Symbol) = kebab(String(camel))
+
 
 
 #=
@@ -356,5 +419,10 @@ end
 =#
 
 # [Escape can directly write to io if more efficient]
+
+# we use attr rather than attrname and attrvalue for validation/normalization
+# due to the brevity gains. it was terribly verbose otherwise.
+
+# q: do we even store attrs in a dict? what if we had parallel arrays?
 
 end # module
