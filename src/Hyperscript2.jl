@@ -21,22 +21,28 @@ struct SVG <: NodeKind end
 struct Ctx{kind} end
 isvoid(ctx, tag) = false
 
-normalize(ctx, x) = x
-normalize_tag(ctx, tag) = normalize(ctx, tag)
-normalize_attr(ctx, tag, attr) = normalize(ctx, attr)
-normalize_child(ctx, tag, child) = normalize(ctx, child)
+#=
+normalization and validation of tags, attributes, and children
+should function differently for each; hence there is no central
+point of override for the set.
 
+escaping of tags, attributes, and children, however, has potential
+to be uniform across all three types; hence there is an `escape`
+fallback for the three separate methods.
+=#
 
-validate(ctx, x) = x
-validate_tag(ctx, tag) = validate(ctx, tag)
-validate_attr(ctx, tag, attr) = validate(ctx, attr)
-validate_child(ctx, tag, child) = validate(ctx, child)
+normalizetag(ctx, tag) = tag
+normalizeattr(ctx, tag, attr) = attr
+normalizechild(ctx, tag, child) = child
 
+validatetag(ctx, tag) = tag
+validateattr(ctx, tag, attr) = attr
+validatechild(ctx, tag, child) = child
 
 escape(ctx, x) = x
-escape_tag(ctx, tag) = escape(ctx, tag)
-escape_attr(ctx, attr) = escape(ctx, attr)
-escape_child(ctx, child) = escape(ctx, child)
+escapetag(ctx, tag) = escape(ctx, tag)
+escapeattr(ctx, attr) = escape(ctx, attr)
+escapechild(ctx, child) = escape(ctx, child)
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
     out = []
@@ -47,12 +53,11 @@ function flat(xs::Union{Base.Generator, Tuple, Array})
 end
 flat(x) = (x,)
 
-# todo: is this making too many allocations?
+# todo: are these making too many allocations?
 vn_children(ctx, tag, children) =
-    validate_child.(ctx, tag, normalize_child.(ctx, tag, flat(children)))
-
+    validatechild.(ctx, tag, normalizechild.(ctx, tag, flat(children)))
 vn_attrs(ctx, tag, attrs) =
-    (validate_attr(ctx, tag, normalize_attr(ctx, tag, attr)) for attr in attrs)
+    Dict(validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
 
 struct Node
     ctx::Ctx
@@ -60,8 +65,8 @@ struct Node
     children::Vector{Any}
     attrs::Dict{String, String}
     function Node(ctx, tag, children, attrs)
-        tag = validate_tag(ctx, normalize_tag(ctx, tag))
-        new(ctx, tag, vn_children(ctx, tag, children), Dict(vn_attrs(ctx, tag, attrs)))
+        tag = validatetag(ctx, normalizetag(ctx, tag))
+        new(ctx, tag, vn_children(ctx, tag, children), vn_attrs(ctx, tag, attrs))
     end
 end
 
@@ -74,16 +79,18 @@ function (node::Node)(cs...; as...)
     Node(
         context(node),
         tag(node),
-        isempty(as) ? attrs(node)    : merge(attrs(node), vn_attrs(as)),
-        isempty(cs) ? children(node) : prepend!(vn_children(cs), children(node))
+        isempty(cs) ? children(node) : prepend!(vn_children(context(node), tag(node), cs), children(node)),
+        isempty(as) ? attrs(node)    : merge(attrs(node), vn_attrs(context(node), tag(node), as))
     )
 end
 
+render(io::IO, ctx::Ctx{HTML}, x::String) = print(io, x)
+
 function render(io::IO, ctx::Ctx{HTML}, node::Node)
-    esctag = escape_tag(ctx, tag(node))
+    esctag = escapetag(ctx, tag(node))
     print(io, "<", esctag)
     for attr in pairs(attrs(node))
-        (name, value) = escape_attr(ctx, attr)
+        (name, value) = escapeattr(ctx, attr)
         print(io, " ", name, "=\"", value, "\"")
     end
     if isvoid(ctx, tag(node))
@@ -106,9 +113,9 @@ m_html(tag, children...; attrs...) = Node(Ctx{HTML}(), tag, children, attrs)
 
 # HTML
 # note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
-normalize_attr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => string(attr.second)
+normalizeattr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => string(attr.second)
 const m = m_html
-node = m("div", align="foo", m("div", moo="false", boo=true))
+node = m("div", align="foo", m("div", moo="false", boo=true)("xx", extra=4, boo=5))
 @show node
 
 # 1.
@@ -148,11 +155,11 @@ struct EscapeConfig end
 # todo: what context do the various pieces need?
 
 # Throw an error if the thing is invalid; otherwise do nothing
-function validate_tag(ctx, tag)
+function validatetag(ctx, tag)
 end
-function validate_attr(ctx, tag, name, value)
+function validateattr(ctx, tag, name, value)
 end
-function validate_child(ctx, tag, child)
+function validatechild(ctx, tag, child)
 end
 
 # Return the escaped version of the thing.
@@ -171,21 +178,21 @@ end
 
     further nuance: specific versions of the specs
 
-    validate_tag(::CSS, tag)
-    validate_attrname(::CSS, tag, attrname)
-    validate_attrvalue(::CSS, tag, attrname, attrvalue)
-    validate_child(::CSS, tag, child)
+    validatetag(::CSS, tag)
+    validateattrname(::CSS, tag, attrname)
+    validateattrvalue(::CSS, tag, attrname, attrvalue)
+    validatechild(::CSS, tag, child)
 
 
-    normalize_tag
-    normalize_attr(::CSS, name, value)
-    normalize_child(::CSS, name, value)
+    normalizetag
+    normalizeattr(::CSS, name, value)
+    normalizechild(::CSS, name, value)
 
 
 
-    normalize_attrname(::CSS,
-    normalize_attrvalue(:CSS,
-    normalize_child(::CSS
+    normalizeattrname(::CSS,
+    normalizeattrvalue(:CSS,
+    normalizechild(::CSS
 =#
 
 
