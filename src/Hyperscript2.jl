@@ -1,51 +1,22 @@
 #=
-    actions:  normalize / validate / escape / render
-    subjects: tag / attr name / attr value / child
-    contexts: CSS / HTML / SVG + per-action options
-
-    Nodes are normalized and validated on input and escaped upon output.
-
-    The core is free of mention of any specific output target; HTML/SVG/CSS
-    are implemented separately.
-
-    Contexts are loci for target-specific parameterization; e.g. `isvoid`
-    might be a function only of HTML and SVG targets.
-
-    The ctx argument in the render(io, ctx, node) method may render a node
-    in a modified context from its own — for example in order to nest one
-    type of node inside another.
-
-    ^ Not sure if this is coherent, but it feels like a potentially useful
-    source of functionality.
-
-    It is at least useful for dispatch — the context type parameters function
-    as traits.
-
+    todo
+        indentation
+        how do mime-types fit into all this?
+            # mime = MIME(mimewritable(MIME("text/html"), x) ? "text/html" : "text/plain")
+            # Base.show(io::IO, ::MIME"text/html", node::Node{Context{HTML}}) = render(io, node)
 =#
-
-# indentation
-# isvoid
-# value => val?
 
 module Hyperscript
 
 abstract type NodeKind end
 
-struct CSS <: NodeKind end
+# replace with :css, :html, etc.?
+struct CSS  <: NodeKind end
 struct HTML <: NodeKind end
-struct SVG <: NodeKind end
+struct SVG  <: NodeKind end
 
-struct Ctx{kind} end
-
-#=
-normalization and validation of tags, attributes, and children
-should function differently for each; hence there is no central
-point of override for the set.
-
-escaping of tags, attributes, and children, however, has potential
-to be uniform across all three types; hence there is an `escape`
-fallback for the three separate methods.
-=#
+struct Context{kind}
+end
 
 normalizetag(ctx, tag) = tag
 normalizeattr(ctx, tag, attr) = attr
@@ -55,14 +26,14 @@ validatetag(ctx, tag) = tag
 validateattr(ctx, tag, attr) = attr
 validatechild(ctx, tag, child) = child
 
-escape(ctx, x) = x
-escapetag(ctx, tag) = escape(ctx, tag)
-escapeattrname(ctx, name) = escape(ctx, name)
-escapeattrvalue(ctx, value) = escape(ctx, value)
-escapechild(ctx, child) = escape(ctx, child)
+const DEFAULT_ESCAPES = Dict{Char, String}()
+escapetag(ctx) = DEFAULT_ESCAPES
+escapeattrname(ctx) = DEFAULT_ESCAPES
+escapeattrvalue(ctx) = DEFAULT_ESCAPES
+escapechild(ctx) = DEFAULT_ESCAPES
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = []
+    out = [] # eltype(xs)[]
     for x in xs
         append!(out, flat(x))
     end
@@ -70,36 +41,27 @@ function flat(xs::Union{Base.Generator, Tuple, Array})
 end
 flat(x) = (x,)
 
-# todo: are these all making too many allocations?
 vn_children(ctx, tag, children) =
     validatechild.(ctx, tag, normalizechild.(ctx, tag, flat(children)))
 vn_attrs(ctx, tag, attrs) =
     (validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
 
-struct Node{C <: Ctx}
-    ctx::C
+struct Node{C <: Context}
+    context::C
     tag::String
-    children::Vector{Any} # should we make this not-any but rather specialized per node? might make rendering faster for lots of same-type children
-    # we need to preserve nothing until printing.
-    # this gives another perspective:
-    # everything is _aligned_ -- all the way through the stack.
-    # from representation up here, through normalization and validation.
-    # rather than string-ing early, we can keep some things in a more type-rich format.
-    # for example, then we could provide a 'trim-numbers' for ctxs.
-    # also, if we want OTHER contexts to control our printing, then some things need
-    # to be done at print time rather than eagerly.
-    # we should do as much eagerly as is needed to give early errors. and perhaps not more.
-    attrs::Dict{String, Union{String, Nothing}} # note: nothing does not work for css!
-    function Node(ctx::C, tag, children, attrs) where C
-        tag = validatetag(ctx, normalizetag(ctx, tag))
-        new{C}(ctx, tag, vn_children(ctx, tag, children), Dict(vn_attrs(ctx, tag, attrs)))
-    end
+    children::Vector{Any}
+    attrs::Dict{String, Any}
+end
+
+function Node(ctx::C, tag, children, attrs) where C
+    tag = validatetag(ctx, normalizetag(ctx, tag))
+    Node{C}(ctx, tag, vn_children(ctx, tag, children), Dict(vn_attrs(ctx, tag, attrs)))
 end
 
 tag(x::Node) = Base.getfield(x, :tag)
 attrs(x::Node) = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
-context(x::Node) = Base.getfield(x, :ctx)
+context(x::Node) = Base.getfield(x, :context)
 
 function (node::Node)(cs...; as...)
     Node(
@@ -110,38 +72,77 @@ function (node::Node)(cs...; as...)
     )
 end
 
-function render end
+printescaped(io::IO, x::String, escapes) = for c in x # todo: turn this into something like an escaping IO pipe to avoid the necessity to allocate x
+    print(io, get(escapes, c, c))
+end
+printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
+
+render(io::IO, node::Node) = render(io, context(node), node)
+render(node::Node) = sprint(render, node)
+render(io::IO, ctx, x) = printescaped(io, x, escapechild(ctx)) # non-nodes
+
+Base.show(io::IO, node::Node) = render(io, node)
+
+# invariant: a node always renders in its own context.
+# the ctx argument is used only for rendering _non-nodes_ in the context of their parent node.
 
 ###
 
 isnothing(x) = x == nothing
 kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
-kebab(camel::Symbol) = kebab(String(camel))
+# kebab(camel::Symbol) = kebab(String(camel))
 
-addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
-Base.getproperty(x::Node{Ctx{HTML}}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
-Base.getproperty(x::Node{Ctx{HTML}}, class::String) = x(class=addclass(attrs(x), class))
+# contains(s, r"^data[0-9A-Z]") && return "data-" * lowercase(s[5]) * kebab(s[6:end])
 
 # HTML
 
+# Creates an HTML escaping dictionary
+chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
+# See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
+const ATTR_VALUE_ESCAPES = chardict("&<>\"\n\r\t")
+# See: https://stackoverflow.com/a/9189067/1175713
+const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
 
+# note: can avoid extra stringification by overriding attr::Pair{String, <:Any} and so forth
+normalizeattr(ctx::Context{HTML}, tag, attr::Pair{<:Any, <:Any}) = kebab(string(first(attr))) => last(attr)
+# validateattr(ctx:Context{HTML}, tag, attr) => isnan(last(attr)) && error(xxxx)
 
-isvoidtag(ctx::Ctx{HTML}, tag) = false
+escapetag(ctx::Context{HTML}) = HTML_ESCAPES
+escapeattrname(ctx::Context{HTML}) = HTML_ESCAPES
+escapeattrvalue(ctx::Context{HTML}) = ATTR_VALUE_ESCAPES
+escapechild(ctx::Context{HTML}) = HTML_ESCAPES
 
-render(io::IO, ctx::Ctx{HTML}, x) = print(io, escapechild(ctx, x))
+addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
+Base.getproperty(x::Node{Context{HTML}}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
+Base.getproperty(x::Node{Context{HTML}}, class::String) = x(class=addclass(attrs(x), class))
+
+isvoidtag(ctx::Context{HTML}, tag) = false
 
 # note: how do we e.g. render css or script text unescaped?
-# something like escapechild(ctx::Ctx{HTML}, x::ScriptRaw) = x?
+# something like escapechild(ctx::Context{HTML}, x::ScriptRaw) = x?
 
-# invariant: a node always renders in its own context.
-# the ctx argument is used only for rendering _non-nodes_ in the context of their parent node.
-function render(io::IO, ctx::Ctx{HTML}, node::Node)
-    ctx, esctag = context(node),  escapetag(ctx, tag(node))
-    print(io, "<", esctag)
+# Render child nodes in their own context
+renderchild(io, ctx, node::Node) = render(io, context(node), node)
+
+# Render child non-nodes in their parent's context
+renderchild(io, ctx, x) = render(io, ctx, x)
+
+function render(io::IO, ctx::Context{HTML}, node::Node)
+    @assert ctx == context(node)
+    etag, eattrname, eattrvalue = escapetag(ctx), escapeattrname(ctx), escapeattrvalue(ctx)
+
+    print(io, "<")
+    printescaped(io, tag(node), etag)
     for (name, value) in pairs(attrs(node))
-        print(io, " ", escapeattrname(ctx, name))
-        isnothing(value) || print(io, "=\"", escapeattrvalue(ctx, value), "\"")
+        print(io, " ")
+        printescaped(io, name, eattrname)
+        if value != nothing
+            print(io, "=\"")
+            printescaped(io, value, eattrvalue)
+            print(io, "\"")
+        end
     end
+
     if isvoidtag(ctx, tag(node))
         @assert isempty(children(node))
         print(io, " />")
@@ -150,38 +151,96 @@ function render(io::IO, ctx::Ctx{HTML}, node::Node)
         for child in children(node)
             renderchild(io, ctx, child)
         end
-        print(io, "</", esctag,  ">")
+        print(io, "</")
+        printescaped(io, tag(node), etag)
+        print(io, ">")
     end
 end
 
-render(io::IO, node::Node) = render(io, context(node), node)
-render(node::Node) = sprint(render, node)
 
-# Render child nodes in their own context
-renderchild(io, ctx, node::Node) = render(io, context(node), node)
-
-# Render child non-nodes in their parent's context
-renderchild(io, ctx, x) = render(io, ctx, x)
-
-Base.show(io::IO, node::Node) = render(io, node)
-# Base.show(io::IO, ::MIME"text/html",  node::Node{Ctx{HTML}}) = render(io, context(node), node)
-
-
-m_html(tag, children...; attrs...) = Node(Ctx{HTML}(), tag, children, attrs)
-
-# note: can avoid extra stringification by overriding attr::Pair{String, String} and so forth
-normalizeattr(ctx::Ctx{HTML}, tag, attr) = string(attr.first) => isnothing(attr.second) ? attr.second : string(attr.second)
+m_html(tag, children...; attrs...) = Node(Context{HTML}(), tag, children, attrs)
 
 ###
 
-const m = m_html
+
+# CSS
+
+function render(io::IO, ctx::Context{CSS}, node::Node)
+    @assert ctx == context(node)
+    etag, eattrname, eattrvalue = escapetag(ctx), escapeattrname(ctx), escapeattrvalue(ctx)
+
+    printescaped(io, tag(node), etag)
+    print(io, " {\n")
+
+    for (name, value) in pairs(attrs(node))
+        printescaped(io, name, eattrname)
+        print(io, ": ")
+        # todo: assert value != nothing in validation
+        printescaped(io, value, eattrvalue)
+        print(io, ";\n")
+    end
+
+    ismedia = startswith(tag(node), "@media")
+    if ismedia
+        for child in children(node)
+            @assert typeof(child) <: Node
+            render(io, child) # could just use render here; these should always be nodes (todo: validate)
+        end
+    end
+
+    print(io, "}\n")
+
+    if !ismedia
+        for child in children(node)
+            @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+            childctx = context(child)
+            render(io, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
+        end
+    end
+end
+
+normalizeattr(ctx::Context{CSS}, tag, attr::Pair{<:Any, <:Any}) = kebab(string(first(attr))) => last(attr)
+
+escapetag(ctx::Context{CSS}) = DEFAULT_ESCAPES
+escapeattrname(ctx::Context{CSS}) = DEFAULT_ESCAPES
+escapeattrvalue(ctx::Context{CSS}) = DEFAULT_ESCAPES
+# there are no children for css trees
+# escapechild(ctx::Context{CSS}) = DEFAULT_ESCAPES
+
+m_css(tag, children...; attrs...) = Node(Context{CSS}(), tag, children, attrs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###
+
+
 # m("div", malign="noo"))#
-node = m("div", align="foo", m("div", moo="false", boo=true)("xx", extra=nothing, boo=5))
-@show node
+node = m_html("div", align="foo", m_html("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
+cssnode = m_css("@media(foo < 3)",
+    m_css(".foo .bar", arcGis=3, flip="flap", m_css("nest nest", color="red"))
+)
+@show cssnode
 
 # 1.
-# Node(Ctx{HTML}(), "div", [
-#     Node(Ctx{HTML}(), "div", [], Dict("moo" => "false"))
+# Node(Context{HTML}(), "div", [
+#     Node(Context{HTML}(), "div", [], Dict("moo" => "false"))
 # ], Dict("align" => "true"))
 # 2.
 # m("div", align="foo", m("div", moo="false"))
@@ -424,5 +483,72 @@ end
 # due to the brevity gains. it was terribly verbose otherwise.
 
 # q: do we even store attrs in a dict? what if we had parallel arrays?
+
+# we need to preserve nothing until printing.
+# this gives another perspective:
+# everything is _aligned_ -- all the way through the stack.
+# from representation up here, through normalization and validation.
+# rather than string-ing early, we can keep some things in a more type-rich format.
+# for example, then we could provide a 'trim-numbers' for ctxs.
+# also, if we want OTHER contexts to control our printing, then some things need
+# to be done at print time rather than eagerly.
+# we should do as much eagerly as is needed to give early errors. and perhaps not more.
+# another argument: storing numbers allows us to check for nan in validation; otherwise
+# normalization would stringify and we couldn't tell NaN from "NaN" without yet another
+# normalization step. And stringifying only on out is less work to do, particularly with
+# our new relaxed attitude towards validation.
+# number, nothing, string
+
+
+# todo: do an allocation optimization pass
+
+#=
+normalization and validation of tags, attributes, and children
+should function differently for each; hence there is no central
+point of override for the set.
+
+escaping of tags, attributes, and children, however, has potential
+to be uniform across all three types; hence there is an `escape`
+fallback for the three separate methods.
+^ untrue; even html attr/otherwise escapes are different.
+=#
+
+#=
+
+The ctx argument in the render(io, ctx, node) method may render a node
+in a modified context from its own — for example in order to nest one
+type of node inside another.
+
+^ Not sure if this is coherent, but it feels like a potentially useful
+source of functionality.
+
+It is at least useful for dispatch — the context type parameters function
+as traits.
+
+=#
+
+# node children:  # should we make this not-any but rather specialized per node? might make rendering faster for lots of same-type children
+
+# todo: maybe don't define these by default, forcing explicit non-escaping?
+# or even better: define methods for "replacements", which are applied upon
+# print — with the escape functions below, you can return a non-string that
+# ends up having invalid characters. hrm. what is the least amount of temp
+# stringing plus guaranteed escapingness?
+# escapetag(ctx, tag) = HTML_ESCAPES # sort of thing
+
+#=
+actions:  normalize / validate / escape / render
+subjects: tag / attr name / attr value / child
+contexts: CSS / HTML / SVG + per-action options
+
+Nodes are normalized and validated on input and escaped upon output.
+
+The core is free of mention of any specific output target; HTML/SVG/CSS
+are implemented separately.
+
+Contexts are loci for target-specific parameterization; e.g. `isvoid`
+might be a function only of HTML and SVG targets.
+
+=#
 
 end # module
