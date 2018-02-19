@@ -1,21 +1,36 @@
 #=
     todo
-        indentation
         how do mime-types fit into all this?
             # mime = MIME(mimewritable(MIME("text/html"), x) ? "text/html" : "text/plain")
             # Base.show(io::IO, ::MIME"text/html", node::Node{Context{HTML}}) = render(io, node)
+        css escapes
+            https://www.w3.org/International/questions/qa-escapes
+        css validation
+            prevent non-cssnode children
+            prevent eg. nothing attr values
+        scoped css
+            can this be handled as a layer atop? probably yes for the thing we have so far;
+            but there is the other thing of auto-extract csses from a page and put them in a
+            style tag in the head
+        css autoprefixing
+        html validation
+            nan attr values
+        html/svg normalization
+            squishcase kebabcase data-attrs kebab-with-numbers camel case for the legit camels
+        html/svg isvoid
+    bonus
+        pretty-printing option for indentation
+
 =#
 
 module Hyperscript
 
 abstract type NodeKind end
 
-# replace with :css, :html, etc.?
 struct CSS  <: NodeKind end
-struct HTML <: NodeKind end
-struct SVG  <: NodeKind end
+struct HTML <: NodeKind end # means html & svg
 
-struct Context{kind}
+struct Context{kind <: NodeKind}
 end
 
 normalizetag(ctx, tag) = tag
@@ -116,7 +131,7 @@ addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", cl
 Base.getproperty(x::Node{Context{HTML}}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
 Base.getproperty(x::Node{Context{HTML}}, class::String) = x(class=addclass(attrs(x), class))
 
-isvoidtag(ctx::Context{HTML}, tag) = false
+isvoid(ctx::Context{HTML}, tag) = false
 
 # note: how do we e.g. render css or script text unescaped?
 # something like escapechild(ctx::Context{HTML}, x::ScriptRaw) = x?
@@ -143,7 +158,7 @@ function render(io::IO, ctx::Context{HTML}, node::Node)
         end
     end
 
-    if isvoidtag(ctx, tag(node))
+    if isvoid(ctx, tag(node))
         @assert isempty(children(node))
         print(io, " />")
     else
