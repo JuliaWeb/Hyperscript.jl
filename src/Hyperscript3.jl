@@ -120,9 +120,9 @@ function render(io::IO, ctx::Context{DOM}, node::Node)
 end
 
 const VOID_TAGS = Set([
-    "track", "hr", "col", "embed", "br", "circle", "input", "base", "use",
-    "source", "polyline", "param", "ellipse", "link", "img", "path",
-    "keygen", "wbr", "line", "stop", "rect", "area", "meta", "polygon"
+    "track", "hr", "col", "embed", "br", "circle", "input", "base",
+    "use", "source", "polyline", "param", "ellipse", "link", "img",
+    "path", "wbr", "line", "stop", "rect", "area", "meta", "polygon"
 ])
 isvoid(tag) = tag ∈ VOID_TAGS
 
