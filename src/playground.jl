@@ -1,3 +1,15 @@
+
+
+struct EscapingIOWrapper{T <: IO}
+    io::T
+    escapes::Dict{Char, String}
+end
+write(io::EscapingIOWrapper, x::Char) = print(io.io, get(escapes, c, c))
+write(io::EscapingIOWrapper, x::AbstractString) = for c in x
+    print(io, get(escapes, c, c))
+end
+
+
 __precompile__()
 module Foo
 include("constants.jl")
