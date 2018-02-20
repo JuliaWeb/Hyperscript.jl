@@ -8,6 +8,8 @@ export @tags, m, css, Style
 @enum NodeKind CSS DOM
 
 struct Context{kind}
+    checknan::Bool
+    Context{T}(checknan=true) where {T} = new{T}(checknan)
 end
 kind(::Context{T}) where {T} = T
 
@@ -103,7 +105,7 @@ function render(io::IO, ctx::Context{DOM}, node::Node)
         end
     end
 
-    if isvoid(ctx, tag(node))
+    if isvoid(tag(node))
         @assert isempty(children(node))
         print(io, " />")
     else
@@ -117,7 +119,7 @@ function render(io::IO, ctx::Context{DOM}, node::Node)
     end
 end
 
-isvoid(ctx::Context{DOM}, tag) = false
+isvoid(tag) = false
 
 # Render child nodes in their own context
 renderdomchild(io, ctx, node::Node) = render(io, context(node), node)
@@ -155,6 +157,18 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
 function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
     name = string(name)
     get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
+end
+
+# Nice printing in errors
+stringify(ctx::Context{DOM}, tag) = string("<", tag, isvoid(tag) ? " />" : ">")
+stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = string("<", tag, " ", name, "=\"", value, "\"", isvoid(tag) ? " />" : ">")
+
+function validateattr(ctx::Context{DOM}, tag, attr::Pair)
+    (name, value) = attr
+    if ctx.checknan && typeof(value) <: AbstractFloat && isnan(value)
+        error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
+    end
+    attr
 end
 
 # Creates an DOM escaping dictionary
@@ -300,7 +314,7 @@ end # module
 using .Hyperscript
 @tags div span
 @show span(span("nest"))("hiiii")
-htmlnode = div(align="foo", patternunits=4, patternFnits=4,
+htmlnode = div(align=NaN, patternunits=4, patternFnits=4,
     span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
 cssnode = css("@media(foo < 3)",
     css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
@@ -308,3 +322,4 @@ cssnode = css("@media(foo < 3)",
 styl = Style(cssnode)
 styl2 = Style(cssnode)
 @show styl(span(span("nest", span(styl2(span("h<iiii"))))))
+@show htmlnode
