@@ -1,47 +1,40 @@
+# __precompile__() # todo
 module Hyperscript
 
-@enum NodeKind CSS HTML
+export @tags, m, css, Style
+
+## Basic definitions
+
+@enum NodeKind CSS DOM
 
 struct Context{kind}
 end
+kind(::Context{T}) where {T} = T
 
+# Return the normalized property value
 normalizetag(ctx, tag) = tag
 normalizeattr(ctx, tag, attr) = attr
 normalizechild(ctx, tag, child) = child
 
-processchildren(ctx, tag, children) =
-    validatechild.(ctx, tag, normalizechild.(ctx, tag, flat(children)))
-
+# Return the property value or throw a validation error
 validatetag(ctx, tag) = tag
 validateattr(ctx, tag, attr) = attr
 validatechild(ctx, tag, child) = child
 
-processattrs(ctx, tag, attrs) =
-    (validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
-
-function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = eltype(xs)[]
-    for x in xs
-        append!(out, flat(x))
-    end
-    out
-end
-flat(x) = (x,)
-
-struct Node{T <: Context}
-    context::T
+struct Node{T}
+    context::Context{T}
     tag::String
-    children::Vector
+    children::Vector{Any}
     attrs::Dict{String, Any}
 end
 
-function Node(ctx::T, tag, children, attrs) where T
+function Node(ctx::Context{T}, tag, children, attrs) where T
     tag = validatetag(ctx, normalizetag(ctx, tag))
     Node{T}(ctx, tag, processchildren(ctx, tag, children), Dict(processattrs(ctx, tag, attrs)))
 end
 
-function (node::Node)(cs...; as...)
-    Node(
+function (node::Node{T})(cs...; as...) where T
+    Node{T}(
         context(node),
         tag(node),
         isempty(cs) ? children(node) : prepend!(processchildren(context(node), tag(node), cs), children(node)),
@@ -54,6 +47,23 @@ attrs(x::Node) = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
 context(x::Node) = Base.getfield(x, :context)
 
+## Node utils
+
+processchildren(ctx, tag, children) =
+    Any[validatechild(ctx, tag, normalizechild(ctx, tag, child)) for child in flat(children)] # for prepend! type-stability at Vector{Any}
+
+processattrs(ctx, tag, attrs) =
+    (validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
+
+function flat(xs::Union{Base.Generator, Tuple, Array})
+    out = [] # for type-stability with Node.children::Vector{Any}
+    for x in xs
+        append!(out, flat(x))
+    end
+    out
+end
+flat(x) = (x,)
+
 ## Rendering
 
 render(io::IO, node::Node) = render(io, context(node), node)
@@ -61,20 +71,20 @@ render(node::Node) = sprint(render, node)
 
 Base.show(io::IO, node::Node) = render(io, node)
 
-# todo: turn this into something like an escaping IO pipe to avoid the necessity of allocating x
-# so that we can say something like sprint(printescaped, x, escapes)
 printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
 end
+
+# todo: turn the above into something like an escaping IO pipe to avoid
+# sprint allocation. future use: sprint(printescaped, x, escapes))
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
 
-###
+# pass numbers through untrammelled
+kebab(camel::String) = join(islower(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 
-kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+## DOM
 
-# HTML
-
-function render(io::IO, ctx::Context{HTML}, node::Node)
+function render(io::IO, ctx::Context{DOM}, node::Node)
     @assert ctx == context(node)
 
     etag = escapetag(ctx)
@@ -99,7 +109,7 @@ function render(io::IO, ctx::Context{HTML}, node::Node)
     else
         print(io, ">")
         for child in children(node)
-            renderchild(io, ctx, child)
+            renderdomchild(io, ctx, child)
         end
         print(io, "</")
         printescaped(io, tag(node), etag)
@@ -107,20 +117,47 @@ function render(io::IO, ctx::Context{HTML}, node::Node)
     end
 end
 
-isvoid(ctx::Context{HTML}, tag) = false
+isvoid(ctx::Context{DOM}, tag) = false
 
 # Render child nodes in their own context
-renderchild(io, ctx, node::Node) = render(io, context(node), node)
+renderdomchild(io, ctx, node::Node) = render(io, context(node), node)
 
 # Render child non-nodes in their parent's context
-renderchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
+renderdomchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
 
-# note: we will want to mandate camelCase and not squishcase for e.g. stop-color.
-# and we should allow camelCase and squishcase for e.g. viewBox.
-normalizeattr(ctx::Context{HTML}, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
-# validateattr(ctx:Context{HTML}, tag, attr) = ...
+# Found using filter(x -> any(isupper, x), union(values(COMBINED_ATTRS)...))
+# using attribute data from from the previous iteration of Hyperscript
+const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
+    "preserveAspectRatio", "requiredExtensions", "systemLanguage",
+    "externalResourcesRequired", "attributeName", "attributeType", "calcMode",
+    "keySplines", "keyTimes", "repeatCount", "repeatDur", "requiredFeatures",
+    "requiredFonts", "requiredFormats", "baseFrequency", "numOctaves", "stitchTiles",
+    "focusHighlight", "lengthAdjust", "textLength", "glyphRef", "gradientTransform",
+    "gradientUnits", "spreadMethod", "tableValues", "pathLength", "clipPathUnits",
+    "stdDeviation", "viewBox", "viewTarget", "zoomAndPan", "initialVisibility",
+    "syncBehavior", "syncMaster", "syncTolerance", "transformBehavior", "keyPoints",
+    "defaultAction", "startOffset", "mediaCharacterEncoding", "mediaContentEncodings",
+    "mediaSize", "mediaTime", "maskContentUnits", "maskUnits", "baseProfile",
+    "contentScriptType", "contentStyleType", "playbackOrder", "snapshotTime",
+    "syncBehaviorDefault", "syncToleranceDefault", "timelineBegin", "edgeMode",
+    "kernelMatrix", "kernelUnitLength", "preserveAlpha", "targetX", "targetY",
+    "patternContentUnits", "patternTransform", "patternUnits", "xChannelSelector",
+    "yChannelSelector", "diffuseConstant", "surfaceScale", "refX", "refY",
+    "markerHeight", "markerUnits", "markerWidth", "filterRes", "filterUnits",
+    "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
+    "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
 
-# Creates an HTML escaping dictionary
+# The simplest normalization — don't pay attention to the tag and do kebab-case by default.
+# Allows both squishcase and camelCase for the attributes above.
+# A more targeted version could camelize targeted attributes per-tag.
+# Another idea would be to only normalize attributes passed in as Symbols and
+# leave strings alone, allowing all attribute names to be specified.
+function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
+    name = string(name)
+    get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
+end
+
+# Creates an DOM escaping dictionary
 chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
 
 # See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
@@ -129,31 +166,33 @@ const ATTR_VALUE_ESCAPES = chardict("&<>\"\n\r\t")
 # See: https://stackoverflow.com/a/9189067/1175713
 const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
 
-escapetag(ctx::Context{HTML}) = HTML_ESCAPES
-escapeattrname(ctx::Context{HTML}) = HTML_ESCAPES
-escapeattrvalue(ctx::Context{HTML}) = ATTR_VALUE_ESCAPES
-escapechild(ctx::Context{HTML}) = HTML_ESCAPES
+escapetag(ctx::Context{DOM}) = HTML_ESCAPES
+escapeattrname(ctx::Context{DOM}) = HTML_ESCAPES
+escapeattrvalue(ctx::Context{DOM}) = ATTR_VALUE_ESCAPES
+escapechild(ctx::Context{DOM}) = HTML_ESCAPES
 
 # Concise CSS class shorthand
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
-Base.getproperty(x::Node{Context{HTML}}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
-Base.getproperty(x::Node{Context{HTML}}, class::String) = x(class=addclass(attrs(x), class))
+Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
+Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
 
-m_html(tag, children...; attrs...) = Node(Context{HTML}() #= might be useful to pull out into a const once it has parameters =#, tag, children, attrs)
+m(tag, children...; attrs...) = Node(Context{DOM}() #= might be useful to pull out into a const once it has parameters =#, tag, children, attrs)
 
-# HTML tags macro
+# DOM tags macro
 macro tags(args::Symbol...)
     blk = Expr(:block)
     for tag in args
         push!(blk.args, quote
-            const $(esc(tag)) = m_html($(string(tag)))
+            const $(esc(tag)) = m($(string(tag)))
         end)
     end
     push!(blk.args, nothing)
     blk
 end
 
-# CSS
+## CSS
+
+ismedia(node::Node{CSS}) = startswith(tag(node), "@media")
 
 function render(io::IO, ctx::Context{CSS}, node::Node)
     @assert ctx == context(node)
@@ -168,27 +207,35 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     for (name, value) in pairs(attrs(node))
         printescaped(io, name, eattrname)
         print(io, ": ")
-        # todo: assert value != nothing in validation
         printescaped(io, value, eattrvalue)
         print(io, ";\n")
     end
 
-    ismedia = startswith(tag(node), "@media")
+    nest = ismedia(node) # should we nest children inside this node?
 
-    ismedia && for child in children(node)
+    nest && for child in children(node)
         @assert typeof(child) <: Node
         render(io, child)
     end
 
     print(io, "}\n")
 
-    !ismedia && for child in children(node)
+    !nest && for child in children(node)
         @assert typeof(child) <: Node "CSS child elements must be `Node`s."
         childctx = context(child)
-        render(io, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
+        render(io, Node{kind(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
     end
 end
 
+function validateattr(ctx::Context{CSS}, tag, attr)
+    last(attr) != nothing || error("CSS attribute value may not be `nothing`.")
+    attr
+end
+
+function validatechild(ctx::Context{CSS}, tag, child)
+    typeof(child) <: Node{CSS} || error("CSS nodes may only have Node{CSS} children. Found $(typeof(child)): $child")
+    child
+end
 normalizeattr(ctx::Context{CSS}, tag, attr::Pair{<:Any, <:Any}) = kebab(string(first(attr))) => last(attr)
 
 const NO_ESCAPE = Dict{Char, String}()
@@ -196,17 +243,68 @@ escapetag(ctx::Context{CSS}) = NO_ESCAPE
 escapeattrname(ctx::Context{CSS}) = NO_ESCAPE
 escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPE
 
-m_css(tag, children...; attrs...) = Node(Context{CSS}(), tag, children, attrs)
+css(tag, children...; attrs...) = Node(Context{CSS}(), tag, children, attrs)
 
-###
+## Scoped CSS
 
-@tags div span
+# A `Styled` (styled node) is returned from the application of a `Style` to a `Node`.
+# `Styled` serves as a cascade barrier — parent styles do not affect nested styled nodes.
+struct Styled{T}
+    node::Node{T}
+end
 
-htmlnode = div(align="foo", span("child span"), "and then some") #m_html("div", align="foo", m_html("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
-cssnode = m_css("@media(foo < 3)",
-    m_css(".foo .bar", arcGis=3, flip="flap", m_css("nest nest", color="red"))
+# delegate
+tag(x::Styled) = tag(x.node)
+attrs(x::Styled) = attrs(x.node)
+children(x::Styled) = children(x.node)
+context(x::Styled) = context(x.node)
+(x::Styled)(cs...; as...) = Styled(x.node(cs...; as...))
+render(io::IO, x::Styled) = render(io, x.node)
+renderdomchild(io, ctx, x::Styled) = render(io, ctx, x.node)
+Base.show(io::IO, x::Styled) = render(io, x.node)
+
+struct Style
+    id::Int
+    nodes::Vector{Node{CSS}}
+    augmentcss(id, node) = Node{CSS}(
+        context(node),
+        isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style-$id]",
+        augmentcss.(id, children(node)),
+        attrs(node)
+    )
+    Style(id::Int, nodes) = new(id, [augmentcss(id, node) for node in nodes])
+end
+
+style_id = 0
+function Style(nodes...)
+    global style_id
+    Style(style_id += 1, nodes)
+end
+
+render(io::IO, x::Style) = for node in x.nodes
+    render(io, node)
+end
+
+augmentdom(id, x) = x # Literals and other non-DOM objects
+augmentdom(id, x::Styled) = x # `Styled` nodes act as cascade barriers
+augmentdom(id, node::Node{T}) where {T} = Node{T}(
+    context(node),
+    tag(node),
+    augmentdom.(id, children(node)),
+    push!(copy(attrs(node)), "v-style-$id" => nothing) # note: makes a defensive copy
 )
-@show htmlnode
-
+(s::Style)(x::Node) = Styled(augmentdom(s.id, x))
 
 end # module
+
+using .Hyperscript
+@tags div span
+@show span(span("nest"))("hiiii")
+htmlnode = div(align="foo", patternunits=4, patternFnits=4,
+    span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
+cssnode = css("@media(foo < 3)",
+    css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
+)
+styl = Style(cssnode)
+styl2 = Style(cssnode)
+@show styl(span(span("nest", span(styl2(span("h<iiii"))))))

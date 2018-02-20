@@ -238,7 +238,6 @@ attrs(x::StyledNode) = Base.getfield(x.node, :attrs)
 children(x::StyledNode) = Base.getfield(x.node, :children)
 validation(x::StyledNode) = Base.getfield(x.node, :validation)
 
-
 render(io::IO, x::StyledNode) = render(io, x.node)
 
 struct Style
