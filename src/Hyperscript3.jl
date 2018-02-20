@@ -1,4 +1,4 @@
-# __precompile__() # todo
+__precompile__()
 module Hyperscript
 
 export @tags, m, css, Style
@@ -8,8 +8,8 @@ export @tags, m, css, Style
 @enum NodeKind CSS DOM
 
 struct Context{kind}
-    checknan::Bool
-    Context{T}(checknan=true) where {T} = new{T}(checknan)
+    allow_nan_attr_values::Bool
+    Context{T}(;allow_nan_attr_values) where {T} = new(allow_nan_attr_values)
 end
 kind(::Context{T}) where {T} = T
 
@@ -165,7 +165,7 @@ stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = string("<", tag, " ", n
 
 function validateattr(ctx::Context{DOM}, tag, attr::Pair)
     (name, value) = attr
-    if ctx.checknan && typeof(value) <: AbstractFloat && isnan(value)
+    if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
         error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
     end
     attr
@@ -190,7 +190,8 @@ addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", cl
 Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
 Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
 
-m(tag, children...; attrs...) = Node(Context{DOM}() #= might be useful to pull out into a const once it has parameters =#, tag, children, attrs)
+const DEFAULT_DOM_CONTEXT = Context{DOM}(allow_nan_attr_values=false)
+m(tag, children...; attrs...) = Node(DEFAULT_DOM_CONTEXT, tag, children, attrs)
 
 # DOM tags macro
 macro tags(args::Symbol...)
@@ -257,7 +258,8 @@ escapetag(ctx::Context{CSS}) = NO_ESCAPE
 escapeattrname(ctx::Context{CSS}) = NO_ESCAPE
 escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPE
 
-css(tag, children...; attrs...) = Node(Context{CSS}(), tag, children, attrs)
+const DEFAULT_CSS_CONTEXT = Context{CSS}(allow_nan_attr_values=false)
+css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs)
 
 ## Scoped CSS
 
@@ -310,16 +312,3 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x))
 
 end # module
-
-using .Hyperscript
-@tags div span
-@show span(span("nest"))("hiiii")
-htmlnode = div(align=NaN, patternunits=4, patternFnits=4,
-    span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
-cssnode = css("@media(foo < 3)",
-    css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
-)
-styl = Style(cssnode)
-styl2 = Style(cssnode)
-@show styl(span(span("nest", span(styl2(span("h<iiii"))))))
-@show htmlnode
