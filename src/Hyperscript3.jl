@@ -119,7 +119,12 @@ function render(io::IO, ctx::Context{DOM}, node::Node)
     end
 end
 
-isvoid(tag) = false
+const VOID_TAGS = Set([
+    "track", "hr", "col", "embed", "br", "circle", "input", "base", "use",
+    "source", "polyline", "param", "ellipse", "link", "img", "path",
+    "keygen", "wbr", "line", "stop", "rect", "area", "meta", "polygon"
+])
+isvoid(tag) = tag ∈ VOID_TAGS
 
 # Render child nodes in their own context
 renderdomchild(io, ctx, node::Node) = render(io, context(node), node)
