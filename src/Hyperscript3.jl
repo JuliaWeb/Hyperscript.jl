@@ -1,3 +1,12 @@
+#=
+    notes
+        - we do not escape CSS attribute names or values.
+    todo
+        - a way to not escape e.g. the contents of script or style tags
+        - a way to have per-node-kind configuration structs -- rather than
+        the context being forced to accomodate both use cases.
+
+=#
 __precompile__()
 module Hyperscript
 
@@ -23,7 +32,9 @@ validatetag(ctx, tag) = tag
 validateattr(ctx, tag, attr) = attr
 validatechild(ctx, tag, child) = child
 
-struct Node{T}
+abstract type AbstractNode{T} end
+
+struct Node{T} <: AbstractNode{T}
     context::Context{T}
     tag::String
     children::Vector{Any}
@@ -68,6 +79,7 @@ flat(x) = (x,)
 
 ## Rendering
 
+# Rendering a node at the top level renders it in its own context.
 render(io::IO, node::Node) = render(io, context(node), node)
 render(node::Node) = sprint(render, node)
 
@@ -86,9 +98,7 @@ kebab(camel::String) = join(islower(c) || isnumeric(c) || c == '-' ? c : '-' * l
 
 ## DOM
 
-function render(io::IO, ctx::Context{DOM}, node::Node)
-    @assert ctx == context(node)
-
+function render(io::IO, ctx::Context{DOM}, node::Node{DOM})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
@@ -126,14 +136,13 @@ const VOID_TAGS = Set([
 ])
 isvoid(tag) = tag ∈ VOID_TAGS
 
-# Render child nodes in their own context
-renderdomchild(io, ctx, node::Node) = render(io, context(node), node)
+# Rendering DOM child nodes in their own context
+renderdomchild(io, ctx::Context{DOM}, node::AbstractNode{DOM}) = render(io, node)
 
-# Render child non-nodes in their parent's context
+# Render and escape other DOM children, including CSS nodes, in the parent context.
 renderdomchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
 
-# Found using filter(x -> any(isupper, x), union(values(COMBINED_ATTRS)...))
-# using attribute data from from the previous iteration of Hyperscript
+# All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
     "preserveAspectRatio", "requiredExtensions", "systemLanguage",
     "externalResourcesRequired", "attributeName", "attributeType", "calcMode",
@@ -174,6 +183,11 @@ function validateattr(ctx::Context{DOM}, tag, attr::Pair)
         error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
     end
     attr
+end
+
+function validatechild(ctx::Context{DOM}, tag, child)
+    # typeof(child) <: Node{CSS} && error("DOM nodes may not have Node{CSS} children. Found $(typeof(child)): $child")
+    child
 end
 
 # Creates an DOM escaping dictionary
@@ -234,7 +248,7 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     nest = ismedia(node) # should we nest children inside this node?
 
     nest && for child in children(node)
-        @assert typeof(child) <: Node
+        @assert typeof(child) <: Node{CSS}
         render(io, child)
     end
 
@@ -270,7 +284,7 @@ css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs
 
 # A `Styled` (styled node) is returned from the application of a `Style` to a `Node`.
 # `Styled` serves as a cascade barrier — parent styles do not affect nested styled nodes.
-struct Styled{T}
+struct Styled{T} <: AbstractNode{T}
     node::Node{T}
 end
 
@@ -281,7 +295,6 @@ children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node(cs...; as...))
 render(io::IO, x::Styled) = render(io, x.node)
-renderdomchild(io, ctx, x::Styled) = render(io, ctx, x.node)
 Base.show(io::IO, x::Styled) = render(io, x.node)
 
 struct Style
@@ -317,3 +330,20 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x))
 
 end # module
+
+
+using .Hyperscript
+@tags div span
+@show span(css(".selector", x="<foo"))
+println()
+@show css(".selector", x="<foo")
+htmlnode = div(align=true, patternunits=4, patternFnits=4,
+    span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
+cssnode = css("@media(foo < 3)",
+    css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
+)
+styl = Style(cssnode)
+styl2 = Style(cssnode)
+@show styl(span(span("nest", span(styl2(span("h<iiii"))))))
+@show htmlnode
+
