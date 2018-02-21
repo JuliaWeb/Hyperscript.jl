@@ -121,8 +121,8 @@ printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
 end
 
-# todo: turn the above into something like an escaping IO pipe to avoid
-# sprint allocation. future use: sprint(printescaped, x, escapes))
+# todo: turn the above into something like an escaping IO pipe to avoid string
+# allocation via sprint. future use: sprint(printescaped, x, escapes))
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
 
 # pass numbers through untrammelled
