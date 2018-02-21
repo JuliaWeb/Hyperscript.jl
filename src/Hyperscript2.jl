@@ -1,3 +1,32 @@
+
+#=
+println()
+@show css(".selector", x="<foo")
+htmlnode = div(align=true, patternunits=4, patternFnits=4,
+    span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
+cssnode = css("@media(foo < 3)",
+    css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
+)
+styl = Style(cssnode)
+styl2 = Style(cssnode)
+@show styl(span(span("nest", span(styl2(span("h<iiii"))))))
+@show htmlnode
+
+=#
+
+#=
+    notes
+        - we do not escape CSS attribute names or values.
+    todo
+        - a way to not escape e.g. the contents of script or style tags
+    future
+        - a way to have per-node-kind configuration structs -- rather than
+        the context being forced to accomodate both use cases.
+
+=#
+
+
+
 #=
     todo
         how do mime-types fit into all this?
