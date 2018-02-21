@@ -1,8 +1,10 @@
 #=
+
 todo
     understand how mime-types fit in
     pretty-printing option for indentation
     clojure-style :attr val :attr val pairs for concision. how do things nest?
+
 discussion points
     at what level do we want to stringify things? early, for validation?
     css autoprefixing
@@ -26,31 +28,9 @@ discussion points
        actions:  normalize / validate / escape / render
        subjects: tag / attrname / attrvalue / child
        contexts: CSS / HTML / SVG + validation/escape options
-
 =#
 
-#= the bostock take: https://beta.observablehq.com/@mbostock/saving-svg
-serialize = {
-  const xmlns = "http://www.w3.org/2000/xmlns/";
-  const xlinkns = "http://www.w3.org/1999/xlink";
-  const svgns = "http://www.w3.org/2000/svg";
-  return function serialize(svg) {
-    svg = svg.cloneNode(true);
-    if (!svg.hasAttributeNS(xmlns, "xmlns")) {
-      svg.setAttributeNS(xmlns, "xmlns", svgns);
-    }
-    if (!svg.hasAttributeNS(xmlns, "xmlns:xlink")) {
-      svg.setAttributeNS(xmlns, "xmlns:xlink", xlinkns);
-    }
-    const serializer = new window.XMLSerializer;
-    const string = serializer.serializeToString(svg);
-    return new Blob([string], {type: "image/svg+xmlm"});
-  };
-}
-=#
-
-
-# __precompile__()
+__precompile__()
 module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style
