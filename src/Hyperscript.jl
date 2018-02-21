@@ -1,216 +1,127 @@
-# how does node equality work? important for e.g. deduplicating css styles for inclusion in the <head>
-
-# todo: support attributes without values. (use `nothing` as a "just include this attribute"?)
-# todo: do we validate against odd characters in the tag name?
-# todo: add a MixedUnits so that string(1px + 2em + 1px) == "calc(2px + 2em)"
 #=
-    css is *per component*, not *per instance*
-    make a `rule`, for css rules? `ssrule` `cssrule`
-    maybe
-        # these need non-colliding names
-        struct Foo end
-        html(::Foo) = ...
-        style(::Foo) = css(...) or ss(...) or a combination of both
+todo
+    understand how mime-types fit in
+    pretty-printing option for indentation
+    clojure-style :attr val :attr val pairs for concision. how do things nest?
+discussion points
+    at what level do we want to stringify things? early, for validation?
+    css autoprefixing
+    css: rule order matters, but attrs are a dict. fortunately, order only matters when a later value overrides a previous value with the same key -- exactly what julia handles gracefully at call sites where attributes are specified as key-value pairs
+    kebabification except for known properties
+    odd cases: code in a <script> (could be js or other), css in a <style>
 
-        * components are structs and provide natural cascade boundaries
+    nested svg in a html / nested html inside a foreignObject in a svg are handled by just treating them the same
 
+    `nothing` for pure key attributes
 
-        -or-
+    single-level noescaping
 
-        streamgraph(x, y) = ...
-        html(::typeof(streamgraph)) = ...
-        css(::typeof(streamgraph)) = ...
+    note: scoped styles are not dynamic – they are shared between all instances of a component.
+    hence our separation into a style that is applied to "instances of a component".
 
-        * does not provide natural cascade boundaries
+    the pipeline
 
-        the way you scope is invent a data-hyperscript-id-xxxx, then
-        append it to every child in every selector;
+       normalize => validate => escape => render
 
-            div p[data-hyperscript-id-xxxx] { ... }
-
-
+       actions:  normalize / validate / escape / render
+       subjects: tag / attrname / attrvalue / child
+       contexts: CSS / HTML / SVG + validation/escape options
 
 =#
 
-# TODO: Document div.fooBar, div."fooBar", and div(fooBar=baz). [auto-kebabing and string properties]
-# Thought: What if we always used > selectors and nested CSS children inside the DOM tree — does that solve cascading issues?
-# Thought: Consider the candidate tree relationships for a `css` node:
-# - it can be the parent, applying its style to all children (immediate?)
-# - it can be a sibling, applying its style to all siblings
-# - in any case, there should be a way to "shield" a child component
-# - we can scope using data-attrs:
-# :global([my-attr="something"]) {...}
-# .my-class [my-attr="something"] {...}
-# - note from svelte: Scoped styles are not dynamic – they are shared
-# between all instances of a component.
-# todo
-#   css and html string macros w/ sublime highlighting scopes
+#= the bostock take: https://beta.observablehq.com/@mbostock/saving-svg
+serialize = {
+  const xmlns = "http://www.w3.org/2000/xmlns/";
+  const xlinkns = "http://www.w3.org/1999/xlink";
+  const svgns = "http://www.w3.org/2000/svg";
+  return function serialize(svg) {
+    svg = svg.cloneNode(true);
+    if (!svg.hasAttributeNS(xmlns, "xmlns")) {
+      svg.setAttributeNS(xmlns, "xmlns", svgns);
+    }
+    if (!svg.hasAttributeNS(xmlns, "xmlns:xlink")) {
+      svg.setAttributeNS(xmlns, "xmlns:xlink", xlinkns);
+    }
+    const serializer = new window.XMLSerializer;
+    const string = serializer.serializeToString(svg);
+    return new Blob([string], {type: "image/svg+xmlm"});
+  };
+}
+=#
 
-__precompile__()
+
+# __precompile__()
 module Hyperscript
 
-using Unicode
-export m, css, @tags, Style, px
+export @tags, @tags_noescape, m, css, Style
 
-include(joinpath(@__DIR__, "constants.jl"))
+## Basic definitions
 
-# Experimental: Unexported units for more concise css specification
-struct Px end
-const px = Px()
-Base.:*(x::Number, y::Px) = string(x, "px")
-struct Em end
-const em = Em()
-Base.:*(x::Number, y::Em) = string(x, "em")
-struct Rem end
-const rem = Rem()
-Base.:*(x::Number, y::Rem) = string(x, "rem")
+@enum NodeKind CSS DOM
 
-# To reduce redundancy, we create some constant values here
-const COMBINED_ATTRS = merge(unique∘vcat, SVG_ATTRS, HTML_ATTRS)
-const COMBINED_TAGS = union(SVG_TAGS, HTML_TAGS)
-const COMBINED_ATTR_NAMES = merge(HTML_ATTR_NAMES, SVG_ATTR_NAMES)
-
-# NOTE: This is still the self-closing-tag list when validation is turned off.
-# How should this work instead?
-isvoid(tag) = tag in COMBINED_VOID_TAGS
-
-## Validation types and implementation
-
-"""
-Validations provide checks against common typos and mistakes. They are non-exhaustive
-and enforce valid HTML/SVG tag names as well as enforcing that the passed attributes
-are allowed on the given tag, e.g. you can use `cx` but not `x` on a `<circle />`.
-
-Validations other than `NoValidate` also enforce that numeric attribute values are non-`NaN`.
-
-The specific tag and attribute names depend on the chosen validation. The default is
-*combined* validation via `ValidateCombined`, which liberally accepts any mix of valid
-HTML/SVG tags and attributes.
-
-Note that `ValidateCombined` does not enforce inter-attribute consistency. If you use a tag
-that belongs to both SVG and HTML, it will accept any mix of HTML and SVG attributes for
-that tag even when the valid attributes for that HTML tag and SVG tag differ.
-
-These are all of the tags shared between HTML and SVG:
-
-$HTML_SVG_TAG_INTERSECTION_MD
-"""
-
-## Validation
-
-abstract type Validation end
-
-# The nans parameter indicates whether to error on
-# NaN attribute values. While this is not strictly
-# against any spec, it is almost never what you want.
-struct Validate{nans} <: Validation
-    name::String
-    tags::Set{String}
-    tag_to_attrs::Dict{String, Vector{String}}
-    sym_to_name::Dict{Symbol, String}
+struct Context{kind, noescape}
+    allow_nan_attr_values::Bool
 end
+kind(::Context{T}) where {T} = T
 
-"Does not validate input tag names, attribute names, or attribute values."
-struct NoValidate <: Validation
-end
+# Return the normalized property value
+normalizetag(ctx, tag) = tag
+normalizeattr(ctx, tag, attr) = scalar(attr)
+normalizechild(ctx, tag, child) = child
 
-struct ValidateCSS <: Validation
-end
+# Return the property value or throw a validation error
+validatetag(ctx, tag) = tag
+validateattr(ctx, tag, attr) = attr
+validatechild(ctx, tag, child) = child
 
-"Validates generously against the combination of HTML and SVG."
-const VALIDATE_COMBINED = Validate{true}("HTML or SVG", COMBINED_TAGS, COMBINED_ATTRS, COMBINED_ATTR_NAMES)
+abstract type AbstractNode{T} end
 
-"Validates generously against the combination of SVG 1.1, SVG Tiny 1.2, and SVG 2."
-const VALIDATE_SVG = Validate{true}("SVG", SVG_TAGS, SVG_ATTRS, SVG_ATTR_NAMES)
-
-"Validates generously against the combination of HTML 4, W3C HTML 5, and WHATWG HTML 5."
-const VALIDATE_HTML = Validate{true}("HTML", HTML_TAGS, HTML_ATTRS, HTML_ATTR_NAMES)
-
-function validatetag(v::Validate, tag)
-    tag ∈ v.tags || error("$tag is not a valid $(v.name) tag")
-    tag
-end
-validatetag(v::NoValidate, tag) = tag
-validatetag(v::ValidateCSS, tag) = tag # todo
-
-function validatevalue(v::Validate{true}, tag, attr, value::Number)
-    isnan(value) && error("A NaN value was passed to an attribute: $(stringify(tag, attr, value))")
-    value
-end
-validatevalue(v, tag, attr, value) = value
-
-kebab(camel::String) = join(islower(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
-kebab(camel::Symbol) = kebab(String(camel))
-
-function validateattrs(v::Validate, tag, kws)
-    attrs = Dict{String, Any}()
-    for (sym, value) in pairs(kws)
-        attr = get(v.sym_to_name, sym) do
-            s = string(sym)
-            # valid: dataFoo => data-foo, data123 => data-123; invalid: datafoo
-            contains(s, r"^data[0-9A-Z]") && return "data-" * lowercase(s[5]) * kebab(s[6:end])
-            error("$sym is not a valid attribute name: $(stringify(tag, sym, value))")
-        end
-        validatevalue(v, tag, attr, value)
-        # Check global attributes first; some tags accept no other attributes and thus don't exist in `v.tag_to_attrs`
-        valid = startswith(attr, "data-") || attr ∈ v.tag_to_attrs["*"] || attr ∈ v.tag_to_attrs[tag]
-        valid || error("$attr is not a valid attribute name for $tag tags")
-        attrs[attr] = value
-    end
-    attrs
-end
-
-function validateattrs(v::NoValidate, tag, kws)
-    Dict{String, Any}(kebab(string(sym)) => value for (sym, value) in pairs(kws))
-end
-
-function validateattrs(v::ValidateCSS, tag, kws) # todo
-    Dict{String, Any}(kebab(string(sym)) => value for (sym, value) in pairs(kws))
-end
-
-# Nice printing in errors
-stringify(tag) = string("<", tag, isvoid(tag) ? " />" : ">")
-stringify(tag, attr, value) = string("<", tag, " ", attr, "=\"", value, "\"", isvoid(tag) ? " />" : ">")
-
-## Node representation and generation
-
-abstract type AbstractNode end
-
-struct Node{V<:Validation} <: AbstractNode
+struct Node{T} <: AbstractNode{T}
+    context::Context{T}
     tag::String
-    attrs::Dict{String, Any}
     children::Vector{Any}
-    validation::V
+    attrs::Dict{String, Any}
 end
 
-function Node(v::V, tag, children, attrs) where {V <: Validation}
-    Node{V}(validatetag(v, tag), validateattrs(v, tag, attrs), flat(children), v)
+function Node(ctx::Context{T}, tag, children, attrs) where T
+    tag = validatetag(ctx, normalizetag(ctx, tag))
+    Node{T}(ctx, tag, processchildren(ctx, tag, children), Dict(processattrs(ctx, tag, attrs)))
+end
+
+function (node::Node{T})(cs...; as...) where T
+    Node{T}(
+        context(node),
+        tag(node),
+        isempty(cs) ? children(node) : prepend!(processchildren(context(node), tag(node), cs), children(node)),
+        isempty(as) ? attrs(node)    : merge(attrs(node), Dict(processattrs(context(node), tag(node), as)))
+    )
 end
 
 tag(x::Node) = Base.getfield(x, :tag)
 attrs(x::Node) = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
-validation(x::Node) = Base.getfield(x, :validation)
+context(x::Node) = Base.getfield(x, :context)
 
-# This was an interesting thought, but both attrs and children support indexing so it's not clear what this should mean.
-# Base.getindex(x::Node, I...) = getindex(attrs(x), I...)
+## Node utils
 
-# Allow extending a node using function application syntax.
-# Overrides attributes and appends children.
-function (node::Node{V})(cs...; as...) where {V <: Validation}
-    Node{V}(
-        tag(node),
-        isempty(as) ? attrs(node)    : merge(attrs(node), validateattrs(validation(node), tag(node), as)),
-        isempty(cs) ? children(node) : prepend!(flat(cs), children(node)),
-        validation(node)
-    )
+function processchildren(ctx, tag, children)
+    # the Any type is for type-stability with prepend! when constructing
+    # `Node`s, whose `children` are Vector{Any}
+    Any[validatechild(ctx, tag, normalizechild(ctx, tag, child)) for child in flat(children)]
 end
 
-# Recursively flatten generators, tuples, and arrays.
-# Wraps scalars in a single-element tuple.
-# Note: We could do something trait-based, so custom lazy collections can opt into compatibility
+# A single attribute is allowed to normalize to multiple attributes,
+# for example when normalizing CSS attribute names.
+processattrs(ctx, tag, attrs) = if isempty(attrs)
+    ()
+else
+    (validateattr(ctx, tag, normalized_attr)
+        for attr in attrs
+        for normalized_attr in flat(normalizeattr(ctx, tag, attr)))
+end
+
 function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = []
+    out = [] # for type-stability with Node.children::Vector{Any}
     for x in xs
         append!(out, flat(x))
     end
@@ -218,122 +129,143 @@ function flat(xs::Union{Base.Generator, Tuple, Array})
 end
 flat(x) = (x,)
 
-# Allow concise class attribute specification.
-# Classes specified this way will append to an existing class if present.
-Base.getproperty(x::Node, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
-Base.getproperty(x::Node, class::String) = x(class=addclass(attrs(x), class))
+## Rendering
+
+# Rendering a node at the top level renders it in its own context.
+render(io::IO, node::Node) = render(io, context(node), node)
+render(node::Node) = sprint(render, node)
+
+Base.show(io::IO, node::Node) = render(io, node)
+
+printescaped(io::IO, x::AbstractString, escapes) = for c in x
+    print(io, get(escapes, c, c))
+end
+
+# todo: turn the above into something like an escaping IO pipe to avoid
+# sprint allocation. future use: sprint(printescaped, x, escapes))
+printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
+
+# pass numbers through untrammelled
+kebab(camel::String) = join(islower(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+
+## DOM
+
+function render(io::IO, ctx::Context{DOM}, node::Node{DOM})
+    etag = escapetag(ctx)
+    eattrname = escapeattrname(ctx)
+    eattrvalue = escapeattrvalue(ctx)
+
+    print(io, "<")
+    printescaped(io, tag(node), etag)
+    for (name, value) in pairs(attrs(node))
+        print(io, " ")
+        printescaped(io, name, eattrname)
+        if value != nothing
+            print(io, "=\"")
+            printescaped(io, value, eattrvalue)
+            print(io, "\"")
+        end
+    end
+
+    if isvoid(tag(node))
+        @assert isempty(children(node))
+        print(io, " />")
+    else
+        print(io, ">")
+        for child in children(node)
+            renderdomchild(io, ctx, child)
+        end
+        print(io, "</")
+        printescaped(io, tag(node), etag)
+        print(io, ">")
+    end
+end
+
+const VOID_TAGS = Set([
+    "track", "hr", "col", "embed", "br", "circle", "input", "base",
+    "use", "source", "polyline", "param", "ellipse", "link", "img",
+    "path", "wbr", "line", "stop", "rect", "area", "meta", "polygon"
+])
+isvoid(tag) = tag ∈ VOID_TAGS
+
+# Rendering DOM child nodes in their own context
+renderdomchild(io, ctx::Context{DOM}, node::AbstractNode{DOM}) = render(io, node)
+
+# Render and escape other DOM children, including CSS nodes, in the parent context.
+renderdomchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
+
+# All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
+const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
+    "preserveAspectRatio", "requiredExtensions", "systemLanguage",
+    "externalResourcesRequired", "attributeName", "attributeType", "calcMode",
+    "keySplines", "keyTimes", "repeatCount", "repeatDur", "requiredFeatures",
+    "requiredFonts", "requiredFormats", "baseFrequency", "numOctaves", "stitchTiles",
+    "focusHighlight", "lengthAdjust", "textLength", "glyphRef", "gradientTransform",
+    "gradientUnits", "spreadMethod", "tableValues", "pathLength", "clipPathUnits",
+    "stdDeviation", "viewBox", "viewTarget", "zoomAndPan", "initialVisibility",
+    "syncBehavior", "syncMaster", "syncTolerance", "transformBehavior", "keyPoints",
+    "defaultAction", "startOffset", "mediaCharacterEncoding", "mediaContentEncodings",
+    "mediaSize", "mediaTime", "maskContentUnits", "maskUnits", "baseProfile",
+    "contentScriptType", "contentStyleType", "playbackOrder", "snapshotTime",
+    "syncBehaviorDefault", "syncToleranceDefault", "timelineBegin", "edgeMode",
+    "kernelMatrix", "kernelUnitLength", "preserveAlpha", "targetX", "targetY",
+    "patternContentUnits", "patternTransform", "patternUnits", "xChannelSelector",
+    "yChannelSelector", "diffuseConstant", "surfaceScale", "refX", "refY",
+    "markerHeight", "markerUnits", "markerWidth", "filterRes", "filterUnits",
+    "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
+    "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
+
+# The simplest normalization — don't pay attention to the tag and do kebab-case by default.
+# Allows both squishcase and camelCase for the attributes above.
+# A more targeted version could camelize targeted attributes per-tag.
+# Another idea would be to only normalize attributes passed in as Symbols and
+# leave strings alone, allowing all attribute names to be specified.
+function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
+    name = string(name)
+    get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
+end
+
+# Nice printing in errors
+stringify(ctx::Context{DOM}, tag) = string("<", tag, isvoid(tag) ? " />" : ">")
+stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = string("<", tag, " ", name, "=\"", value, "\"", isvoid(tag) ? " />" : ">")
+
+function validateattr(ctx::Context{DOM}, tag, attr::Pair)
+    (name, value) = attr
+    if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
+        error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
+    end
+    attr
+end
+
+# Creates an DOM escaping dictionary
+chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
+
+# See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
+const ATTR_VALUE_ESCAPES = chardict("&<>\"\n\r\t")
+
+# See: https://stackoverflow.com/a/9189067/1175713
+const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
+
+# Used for CSS nodes, as well as children of tag nodes defined with @tags_noescape
+const NO_ESCAPES = Dict{Char, String}()
+
+escapetag(ctx::Context{DOM}) = HTML_ESCAPES
+escapeattrname(ctx::Context{DOM}) = HTML_ESCAPES
+escapeattrvalue(ctx::Context{DOM}) = ATTR_VALUE_ESCAPES
+escapechild(ctx::Context{DOM}) = HTML_ESCAPES
+escapechild(ctx::Context{DOM, true}) = NO_ESCAPES
+
+# Concise CSS class shorthand
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
+Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(String(class))))
+Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
 
-# A `StyledNode` is returned from the application of a `Style` to a `Node`.
-# `StyledNode` serves as a cascade barrier — parent styles do not affect nested "components".
-# Styles are either global or scoped to the immediate (non-nested) HTML nodes in a component.
-struct StyledNode <: AbstractNode # todo: rename to `Component`?
-    node::Node
-end
+const DEFAULT_DOM_CONTEXT = Context{DOM, false}(false)
+const NOESCAPE_DOM_CONTEXT = Context{DOM, true}(false)
+m(tag::AbstractString, children...; attrs...) = Node(DEFAULT_DOM_CONTEXT, tag, children, attrs)
+m(ctx::Context, tag::AbstractString, children...; attrs...) = Node(ctx, tag, children, attrs)
 
-# delegate
-(x::StyledNode)(cs...; as...) = StyledNode(x.node(cs...; as...))
-tag(x::StyledNode) = Base.getfield(x.node, :tag)
-attrs(x::StyledNode) = Base.getfield(x.node, :attrs)
-children(x::StyledNode) = Base.getfield(x.node, :children)
-validation(x::StyledNode) = Base.getfield(x.node, :validation)
-
-render(io::IO, x::StyledNode) = render(io, x.node)
-
-struct Style
-    id::Int
-    nodes
-
-    # TODO: How does this handle @media query selectors?
-    function add_id_selector(id, css::Node{ValidateCSS})
-        Node{ValidateCSS}(
-            isempty(attrs(css)) ? tag(css) : tag(css) * "[data-styled='$id']",
-            attrs(css),
-            add_id_selector.(id, children(css)),
-            validation(css)
-        )
-    end
-
-    Style(id::Int, cssnodes) = new(id, add_id_selector.(id, cssnodes))
-end
-
-function render(io::IO, x::Style)
-    for node in x.nodes
-        render(io, node)
-    end
-end
-
-_styleid = 0 # todo: something more thread-safe
-function Style(cssnodes...)
-    global _styleid
-    Style(_styleid += 1, cssnodes)
-end
-
-# note: this definition means that any "renderable" objects (such as numbers, or more
-# complex objects) don't get styles applied, just like `StyledNode`s. Currently those
-# can't actually render non-escaped HTML anyway, which we may want to revisit (or
-# perhaps not)
-add_id_attr(id, x) = x
-
-add_id_attr(id, x::StyledNode) = x
-function add_id_attr(id, html::Node{V}) where V <: Validation
-    Node{V}(
-        tag(html),
-        push!(copy(attrs(html)), "data-styled" => id),
-        add_id_attr.(id, children(html)),
-        validation(html)
-    )
-end
-
-(s::Style)(x::Node) = StyledNode(add_id_attr(s.id, x(dataStyled=s.id)))
-
-"""
-`m(tag, children...; attrs)`
-
-Create a hypertext node with the specified attributes and children. `m` performs
-validation against SVG and HTML tags and attributes; use `m_svg`, `m_html` to
-validate against just SVG or HTML, or use `m_novalidate` to prevent validation
-entirely.
-
-The following import pattern is useful for convenient access to your choice
-of validation style:
-
-```julia
-import Hyperscript
-const m = Hyperscript.m_svg
-```
-
-The `children` can be any Julia values, including other `Node`s creates by `m`.
-Tuples, arrays, and generators will be recursively flattened.
-
-Since attribute names are passed as Julia symbols `m(attrname=value)`, Hyperscript
-accepts both Julia-style (lowercase) and JSX-like (camelCase) attributes:
-
-`acceptCharset` turns into the HTML attribute `accept-charset`, as does `acceptcharset`.
-"""
-m(v::Validation, tag, children...; attrs...) = Node(v, tag, children, attrs)
-m(tag, children...; attrs...)                = Node(VALIDATE_COMBINED, tag, children, attrs)
-m_svg(tag, children...; attrs...)            = Node(VALIDATE_SVG, tag, children, attrs)
-m_html(tag, children...; attrs...)           = Node(VALIDATE_HTML, tag, children, attrs)
-m_novalidate(tag, children...; attrs...)     = Node(NoValidate(), tag, children, attrs)
-
-css(tag, children...; attrs...)              = Node(ValidateCSS(), tag, children, attrs)
-
-"""
-Macro for concisely declaring a number of tags in global scope.
-
-`@tags h1 h2 span` expands into
-
-```
-const h1 = m("h1")
-const h2 = m("h2")
-const span = m("span")
-```
-
-The `const` declaration precludes this macro from being used in
-non-global scopes (e.g. inside a function) since const is disallowed
-on local variables. It is present for performance.
-"""
+# DOM tags macros
 macro tags(args::Symbol...)
     blk = Expr(:block)
     for tag in args
@@ -345,115 +277,127 @@ macro tags(args::Symbol...)
     blk
 end
 
-## Markup generation
-
-# Creates an HTML escaping dictionary
-chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
-# See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
-const ATTR_ESCAPES = chardict("&<>\"\n\r\t")
-# See: https://stackoverflow.com/a/9189067/1175713
-const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
-
-printescaped(io, x, replacements=HTML_ESCAPES) = for c in x
-    print(io, get(replacements, c, c))
+macro tags_noescape(args::Symbol...)
+    blk = Expr(:block)
+    for tag in args
+        push!(blk.args, quote
+            const $(esc(tag)) = m(NOESCAPE_DOM_CONTEXT, $(string(tag)))
+        end)
+    end
+    push!(blk.args, nothing)
+    blk
 end
 
-function render(io::IO, x) # todo: figure out how to integrate css escape and js escape
-    mime = MIME(mimewritable(MIME("text/html"), x) ? "text/html" : "text/plain")
-    printescaped(io, sprint(show, mime, x))
-end
+## CSS
 
-# TODO: Escape the interior of CSS style and JS script tags according to different rules
+ismedia(node::Node{CSS}) = startswith(tag(node), "@media")
 
-# NoValidate
+function render(io::IO, ctx::Context{CSS}, node::Node)
+    @assert ctx == context(node)
 
-# Render nothing as, well, nothing.
-printescaped(io, ::Nothing, replacements) = nothing
-render(io::IO, ::Nothing) = ""
+    etag = escapetag(ctx)
+    eattrname = escapeattrname(ctx)
+    eattrvalue = escapeattrvalue(ctx)
 
-render(io::IO, x::Union{AbstractString, Char, Number}) = printescaped(io, x)
-render(node::Node) = sprint(render, node)
+    printescaped(io, tag(node), etag)
+    print(io, " {\n")
 
-function render(io::IO, node::Node{ValidateCSS})
-    print(io, tag(node), " {\n")
-    for (k, v) in pairs(attrs(node))
-        print(io, "  ", k, ": ", v, ";\n")
-        # todo: css escape
-        # printescaped(io, v, ATTR_ESCAPES)
+    for (name, value) in pairs(attrs(node))
+        printescaped(io, name, eattrname)
+        print(io, ": ")
+        printescaped(io, value, eattrvalue)
+        print(io, ";\n")
     end
 
-    ismedia = startswith(tag(node), "@media")
-    if ismedia
-        for child in children(node)
-            render(io, child)
-        end
+    nest = ismedia(node) # should we nest children inside this node?
+
+    nest && for child in children(node)
+        @assert typeof(child) <: Node{CSS}
+        render(io, child)
     end
 
     print(io, "}\n")
 
-    # @assert !isvoid(tag(node)) # todo: per-validation isvoid
-
-    if !ismedia
-        for child in children(node)
-            @assert typeof(child) <: Node "CSS child elements must be `Node`s."
-            render(io, Node(tag(node) * " " * tag(child), attrs(child), children(child), validation(child)))
-        end
+    !nest && for child in children(node)
+        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+        childctx = context(child)
+        render(io, Node{kind(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
     end
 end
 
-# This is needed for the non-validating render.
-# This is totally a hack — validation is separate from escaping. Detangle in the future.
-render(io::IO, x::Union{AbstractString, Char, Number}, ::NoValidate) = print(io, x)
-
-function render(io::IO, node::Node{NoValidate})
-    # TODO: This is a hacky implementation of non-validating output for m_novalidate. Rewrite.
-    print(io, "<", tag(node))
-    for (k, v) in pairs(attrs(node))
-        print(io, " ", k, "=\"")
-        print(io, v)
-        print(io, "\"")
-    end
-    if isvoid(tag(node))
-        @assert isempty(children(node))
-        print(io, " />")
-    else
-        print(io, ">")
-        for child in children(node)
-            # todo: is it OK that we use the parent's no-validate status to print the node's children, potentially recursively?
-            render(io, child, validation(node))
-        end
-        print(io, "</", tag(node), ">")
-    end
+function validateattr(ctx::Context{CSS}, tag, attr)
+    last(attr) != nothing || error("CSS attribute value may not be `nothing`.")
+    attr
 end
 
-function render(io::IO, node::Node)
-    print(io, "<", tag(node))
-    for (k, v) in pairs(attrs(node))
-        print(io, " ", k, "=\"")
-        printescaped(io, v, ATTR_ESCAPES)
-        print(io, "\"")
-    end
-    if isvoid(tag(node))
-        @assert isempty(children(node))
-        print(io, " />")
-    else
-        print(io, ">")
-        for child in children(node)
-            render(io, child)
-        end
-        print(io, "</", tag(node), ">")
-    end
+function validatechild(ctx::Context{CSS}, tag, child)
+    typeof(child) <: Node{CSS} || error("CSS nodes may only have Node{CSS} children. Found $(typeof(child)): $child")
+    child
+end
+normalizeattr(ctx::Context{CSS}, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
+
+escapetag(ctx::Context{CSS}) = NO_ESCAPES
+escapeattrname(ctx::Context{CSS}) = NO_ESCAPES
+escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPES
+
+const DEFAULT_CSS_CONTEXT = Context{CSS, false}(false)
+css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs)
+
+## Scoped CSS
+
+# A `Styled` (styled node) is returned from the application of a `Style` to a `Node`.
+# `Styled` serves as a cascade barrier — parent styles do not affect nested styled nodes.
+struct Styled{T} <: AbstractNode{T}
+    node::Node{T}
 end
 
-Base.show(io::IO, ::MIME"text/html",  node::Node) = render(io, node)
-Base.show(io::IO, node::Node) = render(io, node)
+# delegate
+tag(x::Styled) = tag(x.node)
+attrs(x::Styled) = attrs(x.node)
+children(x::Styled) = children(x.node)
+context(x::Styled) = context(x.node)
+(x::Styled)(cs...; as...) = Styled(x.node(cs...; as...))
+render(io::IO, x::Styled) = render(io, x.node)
+Base.show(io::IO, x::Styled) = render(io, x.node)
 
-# @show css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
-# xss = css("span", fontSize="12px", css(".left", float="left"), css(".right", float="right"))
-# style = styled(xss)
-# html = m("div", m("span", "hi"))
+struct Style
+    id::Int
+    nodes::Vector{Node{CSS}}
+    augmentcss(id, node) = Node{CSS}(
+        context(node),
+        isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style-$id]",
+        augmentcss.(id, children(node)),
+        attrs(node)
+    )
+    Style(id::Int, nodes) = new(id, [augmentcss(id, node) for node in nodes])
+end
 
-# @show style
-# @show style(html)
+style_id = 0
+function Style(nodes...)
+    global style_id
+    Style(style_id += 1, nodes)
+end
+
+render(io::IO, x::Style) = for node in x.nodes
+    render(io, node)
+end
+
+augmentdom(id, x) = x # Literals and other non-DOM objects
+augmentdom(id, x::Styled) = x # `Styled` nodes act as cascade barriers
+augmentdom(id, node::Node{T}) where {T} = Node{T}(
+    context(node),
+    tag(node),
+    augmentdom.(id, children(node)),
+    push!(copy(attrs(node)), "v-style-$id" => nothing) # note: makes a defensive copy
+)
+(s::Style)(x::Node) = Styled(augmentdom(s.id, x))
 
 end # module
+
+
+# using .Hyperscript
+# @tags div span
+# @tags_noescape style script
+
+# @show style(css(".selector", x="<foo"))
+# @show span(css(".selector", x="<foo"))

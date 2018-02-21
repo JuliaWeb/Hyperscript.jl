@@ -1,3 +1,5 @@
+# Fooling around. Does not work in the current state.
+
 abstract type Unit{T<:Number} end
 
 # convenient concise scalar * unit constructor, e.g. 5px
