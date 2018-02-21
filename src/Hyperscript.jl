@@ -373,11 +373,3 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x))
 
 end # module
-
-
-# using .Hyperscript
-# @tags div span
-# @tags_noescape style script
-
-# @show style(css(".selector", x="<foo"))
-# @show span(css(".selector", x="<foo"))
