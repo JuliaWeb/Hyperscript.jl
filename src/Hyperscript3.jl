@@ -1,30 +1,20 @@
-#=
-    notes
-        - we do not escape CSS attribute names or values.
-    todo
-        - a way to not escape e.g. the contents of script or style tags
-        - a way to have per-node-kind configuration structs -- rather than
-        the context being forced to accomodate both use cases.
-
-=#
 __precompile__()
 module Hyperscript
 
-export @tags, m, css, Style
+export @tags, @tags_noescape, m, css, Style
 
 ## Basic definitions
 
 @enum NodeKind CSS DOM
 
-struct Context{kind}
+struct Context{kind, noescape}
     allow_nan_attr_values::Bool
-    Context{T}(;allow_nan_attr_values) where {T} = new(allow_nan_attr_values)
 end
 kind(::Context{T}) where {T} = T
 
 # Return the normalized property value
 normalizetag(ctx, tag) = tag
-normalizeattr(ctx, tag, attr) = attr
+normalizeattr(ctx, tag, attr) = scalar(attr)
 normalizechild(ctx, tag, child) = child
 
 # Return the property value or throw a validation error
@@ -62,11 +52,21 @@ context(x::Node) = Base.getfield(x, :context)
 
 ## Node utils
 
-processchildren(ctx, tag, children) =
-    Any[validatechild(ctx, tag, normalizechild(ctx, tag, child)) for child in flat(children)] # for prepend! type-stability at Vector{Any}
+function processchildren(ctx, tag, children)
+    # the Any type is for type-stability with prepend! when constructing
+    # `Node`s, whose `children` are Vector{Any}
+    Any[validatechild(ctx, tag, normalizechild(ctx, tag, child)) for child in flat(children)]
+end
 
-processattrs(ctx, tag, attrs) =
-    (validateattr(ctx, tag, normalizeattr(ctx, tag, attr)) for attr in attrs)
+# A single attribute is allowed to normalize to multiple attributes,
+# for example when normalizing CSS attribute names.
+processattrs(ctx, tag, attrs) = if isempty(attrs)
+    ()
+else
+    (validateattr(ctx, tag, normalized_attr)
+        for attr in attrs
+        for normalized_attr in flat(normalizeattr(ctx, tag, attr)))
+end
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
     out = [] # for type-stability with Node.children::Vector{Any}
@@ -185,11 +185,6 @@ function validateattr(ctx::Context{DOM}, tag, attr::Pair)
     attr
 end
 
-function validatechild(ctx::Context{DOM}, tag, child)
-    # typeof(child) <: Node{CSS} && error("DOM nodes may not have Node{CSS} children. Found $(typeof(child)): $child")
-    child
-end
-
 # Creates an DOM escaping dictionary
 chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
 
@@ -199,25 +194,42 @@ const ATTR_VALUE_ESCAPES = chardict("&<>\"\n\r\t")
 # See: https://stackoverflow.com/a/9189067/1175713
 const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
 
+# Used for CSS nodes, as well as children of tag nodes defined with @tags_noescape
+const NO_ESCAPES = Dict{Char, String}()
+
 escapetag(ctx::Context{DOM}) = HTML_ESCAPES
 escapeattrname(ctx::Context{DOM}) = HTML_ESCAPES
 escapeattrvalue(ctx::Context{DOM}) = ATTR_VALUE_ESCAPES
 escapechild(ctx::Context{DOM}) = HTML_ESCAPES
+escapechild(ctx::Context{DOM, true}) = NO_ESCAPES
 
 # Concise CSS class shorthand
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
 Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(class)))
 Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
 
-const DEFAULT_DOM_CONTEXT = Context{DOM}(allow_nan_attr_values=false)
-m(tag, children...; attrs...) = Node(DEFAULT_DOM_CONTEXT, tag, children, attrs)
+const DEFAULT_DOM_CONTEXT = Context{DOM, false}(false)
+const NOESCAPE_DOM_CONTEXT = Context{DOM, true}(false)
+m(tag::AbstractString, children...; attrs...) = Node(DEFAULT_DOM_CONTEXT, tag, children, attrs)
+m(ctx::Context, tag::AbstractString, children...; attrs...) = Node(ctx, tag, children, attrs)
 
-# DOM tags macro
+# DOM tags macros
 macro tags(args::Symbol...)
     blk = Expr(:block)
     for tag in args
         push!(blk.args, quote
             const $(esc(tag)) = m($(string(tag)))
+        end)
+    end
+    push!(blk.args, nothing)
+    blk
+end
+
+macro tags_noescape(args::Symbol...)
+    blk = Expr(:block)
+    for tag in args
+        push!(blk.args, quote
+            const $(esc(tag)) = m(NOESCAPE_DOM_CONTEXT, $(string(tag)))
         end)
     end
     push!(blk.args, nothing)
@@ -270,14 +282,13 @@ function validatechild(ctx::Context{CSS}, tag, child)
     typeof(child) <: Node{CSS} || error("CSS nodes may only have Node{CSS} children. Found $(typeof(child)): $child")
     child
 end
-normalizeattr(ctx::Context{CSS}, tag, attr::Pair{<:Any, <:Any}) = kebab(string(first(attr))) => last(attr)
+normalizeattr(ctx::Context{CSS}, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
 
-const NO_ESCAPE = Dict{Char, String}()
-escapetag(ctx::Context{CSS}) = NO_ESCAPE
-escapeattrname(ctx::Context{CSS}) = NO_ESCAPE
-escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPE
+escapetag(ctx::Context{CSS}) = NO_ESCAPES
+escapeattrname(ctx::Context{CSS}) = NO_ESCAPES
+escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPES
 
-const DEFAULT_CSS_CONTEXT = Context{CSS}(allow_nan_attr_values=false)
+const DEFAULT_CSS_CONTEXT = Context{CSS, false}(false)
 css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs)
 
 ## Scoped CSS
@@ -334,16 +345,7 @@ end # module
 
 using .Hyperscript
 @tags div span
-@show span(css(".selector", x="<foo"))
-println()
-@show css(".selector", x="<foo")
-htmlnode = div(align=true, patternunits=4, patternFnits=4,
-    span(patternUnits=3, "child span"), "and then some") #m("div", align="foo", m("div", moo="false", boo=true)("x<x >", extra=nothing, boo=5))
-cssnode = css("@media(foo < 3)",
-    css(".foo .bar", arcGis=3, flip="flap", css("nest nest", color="red"))
-)
-styl = Style(cssnode)
-styl2 = Style(cssnode)
-@show styl(span(span("nest", span(styl2(span("h<iiii"))))))
-@show htmlnode
+@tags_noescape style script
 
+@show style(css(".selector", x="<foo"))
+@show span(css(".selector", x="<foo"))
