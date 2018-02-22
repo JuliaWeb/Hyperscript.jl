@@ -35,6 +35,8 @@ module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style
 
+include(joinpath(@__DIR__, "units.jl"))
+
 ## Basic definitions
 
 @enum NodeKind CSS DOM
