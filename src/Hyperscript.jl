@@ -1,35 +1,3 @@
-#=
-
-future
-    clojure-style :attr val :attr val pairs for concision. how do things nest?
-
-discussion points
-    at what level do we want to stringify things? early, for validation?
-    css autoprefixing
-    css: rule order matters, but attrs are a dict. fortunately, order only matters when a later value overrides a previous value with the same key -- exactly what julia handles gracefully at call sites where attributes are specified as key-value pairs
-    kebabification except for known properties
-    odd cases: code in a <script> (could be js or other), css in a <style>
-
-    nested svg in a html / nested html inside a foreignObject in a svg are handled by just treating them the same
-
-    immutable nodes
-
-    `nothing` for pure key attributes
-
-    single-level noescaping
-
-    note: scoped styles are not dynamic – they are shared between all instances of a component.
-    hence our separation into a style that is applied to "instances of a component".
-
-    the pipeline
-
-       normalize => validate => escape => render
-
-       actions:  normalize / validate / escape / render
-       subjects: tag / attrname / attrvalue / child
-       contexts: CSS / HTML / SVG + validation/escape options
-=#
-
 __precompile__()
 module Hyperscript
 
@@ -205,11 +173,11 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
     "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
     "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
 
-# The simplest normalization — don't pay attention to the tag and do kebab-case by default.
-# Allows both squishcase and camelCase for the attributes above.
+# The simplest normalization — don't pay attention to the tag and do kebab-case
+# by default. Allows both squishcase and camelCase for the attributes above.
 # A more targeted version could camelize targeted attributes per-tag.
 # Another idea would be to only normalize attributes passed in as Symbols and
-# leave strings alone, allowing all attribute names to be specified.
+# leave strings alone, allowing any attribute names to be specified.
 function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
     name = string(name)
     get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
