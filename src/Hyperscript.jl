@@ -14,6 +14,8 @@ discussion points
 
     nested svg in a html / nested html inside a foreignObject in a svg are handled by just treating them the same
 
+    immutable nodes
+
     `nothing` for pure key attributes
 
     single-level noescaping
@@ -46,7 +48,7 @@ kind(::Context{T}) where {T} = T
 
 # Return the normalized property value
 normalizetag(ctx, tag) = tag
-normalizeattr(ctx, tag, attr) = scalar(attr)
+normalizeattr(ctx, tag, attr) = attr
 normalizechild(ctx, tag, child) = child
 
 # Return the property value or throw a validation error
@@ -65,15 +67,21 @@ end
 
 function Node(ctx::Context{T}, tag, children, attrs) where T
     tag = validatetag(ctx, normalizetag(ctx, tag))
-    Node{T}(ctx, tag, processchildren(ctx, tag, children), Dict(processattrs(ctx, tag, attrs)))
+    Node{T}(
+        ctx,
+        tag,
+        processchildren(ctx, tag, children),
+        processattrs(ctx, tag, attrs)
+    )
 end
 
 function (node::Node{T})(cs...; as...) where T
+    ctx = context(node)
     Node{T}(
-        context(node),
+        ctx,
         tag(node),
-        isempty(cs) ? children(node) : prepend!(processchildren(context(node), tag(node), cs), children(node)),
-        isempty(as) ? attrs(node)    : merge(attrs(node), Dict(processattrs(context(node), tag(node), as)))
+        isempty(cs) ? children(node) : prepend!(processchildren(ctx, tag(node), cs), children(node)),
+        isempty(as) ? attrs(node)    : merge(attrs(node), processattrs(ctx, tag(node), as))
     )
 end
 
@@ -85,23 +93,25 @@ context(x::Node) = Base.getfield(x, :context)
 ## Node utils
 
 function processchildren(ctx, tag, children)
-    # the Any type is for type-stability with prepend! when constructing
-    # `Node`s, whose `children` are Vector{Any}
+    # Any[] for type-stability Node construction (children::Vector{Any})
     Any[validatechild(ctx, tag, normalizechild(ctx, tag, child)) for child in flat(children)]
 end
 
 # A single attribute is allowed to normalize to multiple attributes,
 # for example when normalizing CSS attribute names.
+# TODO: Can remove the isempty check if Iterators.flatten([]) ever returns []
 processattrs(ctx, tag, attrs) = if isempty(attrs)
-    ()
+    Dict{String, Any}()
 else
-    (validateattr(ctx, tag, normalized_attr)
+    Dict{String, Any}(
+        validateattr(ctx, tag, attr′)
         for attr in attrs
-        for normalized_attr in flat(normalizeattr(ctx, tag, attr)))
+        for attr′ in flat(normalizeattr(ctx, tag, attr))
+    )
 end
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = [] # for type-stability with Node.children::Vector{Any}
+    out = [] # for type-stability for node children and attribute values
     for x in xs
         append!(out, flat(x))
     end
@@ -111,7 +121,7 @@ flat(x) = (x,)
 
 ## Rendering
 
-# Rendering a node at the top level renders it in its own context.
+# Top-level nodes render in their own context.
 render(io::IO, node::Node) = render(io, context(node), node)
 render(node::Node) = sprint(render, node)
 
@@ -206,10 +216,10 @@ function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
 end
 
 # Nice printing in errors
-stringify(ctx::Context{DOM}, tag) = string("<", tag, isvoid(tag) ? " />" : ">")
-stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = string("<", tag, " ", name, "=\"", value, "\"", isvoid(tag) ? " />" : ">")
+stringify(ctx::Context{DOM}, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
+stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
 
-function validateattr(ctx::Context{DOM}, tag, attr::Pair)
+function validateattr(ctx::Context{DOM}, tag, attr)
     (name, value) = attr
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
         error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
@@ -242,8 +252,8 @@ Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class
 
 const DEFAULT_DOM_CONTEXT = Context{DOM, false}(false)
 const NOESCAPE_DOM_CONTEXT = Context{DOM, true}(false)
-m(tag::AbstractString, children...; attrs...) = Node(DEFAULT_DOM_CONTEXT, tag, children, attrs)
-m(ctx::Context, tag::AbstractString, children...; attrs...) = Node(ctx, tag, children, attrs)
+m(tag::AbstractString, cs...; as...) = Node(DEFAULT_DOM_CONTEXT, tag, cs, as)
+m(ctx::Context, tag::AbstractString, cs...; as...) = Node(ctx, tag, cs, as)
 
 # DOM tags macros
 macro tags(args::Symbol...)
@@ -289,16 +299,15 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
         print(io, ";\n")
     end
 
-    nest = ismedia(node) # should we nest children inside this node?
-
-    nest && for child in children(node)
+    nestchildren = ismedia(node)
+    nestchildren && for child in children(node)
         @assert typeof(child) <: Node{CSS}
         render(io, child)
     end
 
     print(io, "}\n")
 
-    !nest && for child in children(node)
+    !nestchildren && for child in children(node)
         @assert typeof(child) <: Node "CSS child elements must be `Node`s."
         childctx = context(child)
         render(io, Node{kind(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
@@ -325,10 +334,11 @@ css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs
 
 ## Scoped CSS
 
-# A `Styled` (styled node) is returned from the application of a `Style` to a `Node`.
-# `Styled` serves as a cascade barrier — parent styles do not affect nested styled nodes.
+# A `Styled` node results from the application of a `Style` to a `Node`.
+# It serves as a cascade barrier — parent styles do not bleed into nested styled nodes.
 struct Styled{T} <: AbstractNode{T}
     node::Node{T}
+    style
 end
 
 # delegate
@@ -342,23 +352,23 @@ Base.show(io::IO, x::Styled) = render(io, x.node)
 
 struct Style
     id::Int
-    nodes::Vector{Node{CSS}}
+    styles::Vector{Node{CSS}}
     augmentcss(id, node) = Node{CSS}(
         context(node),
-        isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style-$id]",
+        isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style$id]",
         augmentcss.(id, children(node)),
         attrs(node)
     )
-    Style(id::Int, nodes) = new(id, [augmentcss(id, node) for node in nodes])
+    Style(id::Int, styles) = new(id, [augmentcss(id, node) for node in styles])
 end
 
 style_id = 0
-function Style(nodes...)
+function Style(styles...)
     global style_id
-    Style(style_id += 1, nodes)
+    Style(style_id += 1, styles)
 end
 
-render(io::IO, x::Style) = for node in x.nodes
+render(io::IO, x::Style) = for node in x.styles
     render(io, node)
 end
 
@@ -368,8 +378,8 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
     context(node),
     tag(node),
     augmentdom.(id, children(node)),
-    push!(copy(attrs(node)), "v-style-$id" => nothing) # note: makes a defensive copy
+    push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
 )
-(s::Style)(x::Node) = Styled(augmentdom(s.id, x))
+(s::Style)(x::Node) = Styled(augmentdom(s.id, x), s)
 
 end # module
