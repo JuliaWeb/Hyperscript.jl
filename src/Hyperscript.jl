@@ -1,8 +1,6 @@
 #=
 
-todo
-    understand how mime-types fit in
-    pretty-printing option for indentation
+future
     clojure-style :attr val :attr val pairs for concision. how do things nest?
 
 discussion points
