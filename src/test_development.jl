@@ -7,21 +7,29 @@ macro errors(expr)
     end
 end
 
-#=
+macro renders(x, s)
+    quote
+        Hyperscript.render($x) == $s
+    end
+end
+
 ## Tags
 # Can render tags
-@show m("p")
+@renders m("p") "<p></p>"
 # Cannot render nonempty tags
 @errors m("")
 # Tags can be <: AbstractString
-@show m(SubString("xspan", 2))
+@renders m(SubString("xspan", 2)) "<span></span>"
 # Tags *must* be <: AbstractString
 @test_throws MethodError m(1)
 @test_throws MethodError m('1')
 @test_throws MethodError m(1.0)
 # Tags are normalized to strip whitespace
-@show m(" p ") == m("p")
-@show m("\tp\t") == m("p")
+@test m("p") == m("p")
+@test m(" p ") == m("p")
+@test m("\tp\t") == m("p")
+
+#=
 
 ## Attributes
 # Can render a tag with an attribute
@@ -203,12 +211,11 @@ pstuff(attr="valueTwo")
 # CSS attribute values are not escaped
 @show css("p"; [Symbol("attr<") => "<"]...)
 
-# todo: a css node with an attribute that autoprefixes into multiple attributes
+# todo: test a css node with an attribute that autoprefixes into multiple attributes
 # we currently don't do antoprefixing so there is no way to test the capability
 # short of creating our own node type.
 
-=#
-
+## `Style`s and `StyledNode`s
 # `Style`s can be created
 s1 = Style(css("p", color="red"))
 # `Style`s can be created from multiple CSS rules
@@ -227,3 +234,4 @@ s2 = Style(css("p", color="red"), css("span", color="blue"))
 @show s1(m("p", s2(m("p"))))
 # Applying a styled node to a new node does not style those new children
 @show s1(m("p"))(m("span"))
+=#
