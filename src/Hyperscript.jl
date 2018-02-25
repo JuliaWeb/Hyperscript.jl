@@ -38,7 +38,7 @@ struct Node{T} <: AbstractNode{T}
     attrs::Dict{String, Any}
 end
 
-function Node(ctx::Context{T}, tag, children, attrs) where T
+function Node(ctx::Context{T}, tag::AbstractString, children, attrs) where T
     tag = validatetag(ctx, normalizetag(ctx, tag))
     Node{T}(
         ctx,
@@ -178,6 +178,8 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
     "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
     "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
 
+normalizetag(ctx::Context{DOM}, tag) = strip(tag)
+
 # The simplest normalization — don't pay attention to the tag and do kebab-case
 # by default. Allows both squishcase and camelCase for the attributes above.
 # If the attribute name is a string and not a Symbol (using the Node constructor),
@@ -196,6 +198,11 @@ end
 stringify(ctx::Context{DOM}, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
 stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
 
+function validatetag(ctx::Context{CSS}, tag)
+    isempty(tag) && error("Tag cannot be empty.")
+    tag
+end
+
 function validateattr(ctx::Context{DOM}, tag, attr)
     (name, value) = attr
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
@@ -211,6 +218,7 @@ function validatechild(ctx::Context{DOM}, tag, child)
     if isvoid(tag)
         error("Void tags are not allowed to have children: $(stringify(ctx, tag))")
     end
+    child
 end
 
 # Creates an DOM escaping dictionary
@@ -276,7 +284,7 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     eattrvalue = escapeattrvalue(ctx)
 
     printescaped(io, tag(node), etag)
-    # print(io, " {\n")
+    print(io, " {") # \n
 
     for (name, value) in pairs(attrs(node))
         printescaped(io, name, eattrname)
@@ -300,8 +308,22 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     end
 end
 
+normalizetag(ctx::Context{CSS}, tag) = strip(tag)
+
+stringify(ctx::Context{CSS}, tag, (name, value)::Pair) = "$tag { $name: $value; }"
+
+function validatetag(ctx::Context{DOM}, tag)
+    isempty(tag) && error("Tag cannot be empty.")
+    tag
+end
+
 function validateattr(ctx::Context{CSS}, tag, attr)
-    last(attr) != nothing || error("CSS attribute value may not be `nothing`.")
+    name, value = attr
+    last(attr) == nothing && error("CSS attribute value may not be `nothing`: $(stringify(ctx, tag, attr))")
+    isempty(last(attr)) && error("CSS attribute value may not be empty: $(stringify(ctx, tag, attr))")
+    if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
+        error("NaN values are not allowed for CSS nodes: $(stringify(ctx, tag, attr))")
+    end
     attr
 end
 
@@ -332,7 +354,7 @@ tag(x::Styled) = tag(x.node)
 attrs(x::Styled) = attrs(x.node)
 children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
-(x::Styled)(cs...; as...) = Styled(x.node(cs...; as...))
+(x::Styled)(cs...; as...) = Styled(x.node(cs...; as...), x.style)
 render(io::IO, x::Styled) = render(io, x.node)
 Base.show(io::IO, x::Styled) = render(io, x.node)
 
