@@ -17,6 +17,11 @@ kind(::Context{T}) where {T} = T
 # Return the normalized property value
 normalizetag(ctx, tag) = tag
 normalizeattr(ctx, tag, attr) = attr
+# Normalize non-string keys to string keys
+function normalizeattr(ctx, tag, (name, value)::Pair)
+    normalizeattr(ctx, tag, string(name) => value)
+end
+
 normalizechild(ctx, tag, child) = child
 
 # Return the property value or throw a validation error
@@ -175,12 +180,16 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
 
 # The simplest normalization — don't pay attention to the tag and do kebab-case
 # by default. Allows both squishcase and camelCase for the attributes above.
-# A more targeted version could camelize targeted attributes per-tag.
-# Another idea would be to only normalize attributes passed in as Symbols and
-# leave strings alone, allowing any attribute names to be specified.
-function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair)
+# If the attribute name is a string and not a Symbol (using the Node constructor),
+# then no normalization is performed — this way you can pass any attribute you'd like.
+function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair{Symbol, <:Any})
     name = string(name)
     get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
+end
+
+function normalizeattr(ctx::Context{DOM}, tag, attr::Pair{<:AbstractString, <:Any})
+    # Note: This must change if we begin to normalize values
+    attr
 end
 
 # Nice printing in errors
@@ -192,7 +201,16 @@ function validateattr(ctx::Context{DOM}, tag, attr)
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
         error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
     end
+    if any(isspace, name)
+        error("Spaces are not allowed in DOM attribute names: $(stringify(ctx, tag, attr))")
+    end
     attr
+end
+
+function validatechild(ctx::Context{DOM}, tag, child)
+    if isvoid(tag)
+        error("Void tags are not allowed to have children: $(stringify(ctx, tag))")
+    end
 end
 
 # Creates an DOM escaping dictionary
@@ -258,13 +276,13 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     eattrvalue = escapeattrvalue(ctx)
 
     printescaped(io, tag(node), etag)
-    print(io, " {\n")
+    # print(io, " {\n")
 
     for (name, value) in pairs(attrs(node))
         printescaped(io, name, eattrname)
         print(io, ": ")
         printescaped(io, value, eattrvalue)
-        print(io, ";\n")
+        print(io, ";") # \n
     end
 
     nestchildren = ismedia(node)
@@ -273,7 +291,7 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
         render(io, child)
     end
 
-    print(io, "}\n")
+    print(io, "}") # \n
 
     !nestchildren && for child in children(node)
         @assert typeof(child) <: Node "CSS child elements must be `Node`s."
