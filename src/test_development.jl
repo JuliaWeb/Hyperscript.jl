@@ -29,17 +29,18 @@ end
 @test m(" p ") == m("p")
 @test m("\tp\t") == m("p")
 
-#=
-
 ## Attributes
 # Can render a tag with an attribute
-@show m("p", name="value")
+@renders m("p", name="value") "<p name=\"value\"></p>"
 # Can render a tag with multiple attributes
-@show m("p", name="value", nameTwo="valueTwo")
+@test let x = string(m("p", a="x", b="y"))
+    x == """<p a="x" b="y"></p>""" || x == """<p b="y" a="x"></p>"""
+end
 # Render tags with various non-string attribute values
-@show m("p", name='7')
-@show m("p", name=7)
-@show m("p", name=7.0)
+@renders m("p", name='7') """<p name="7"></p>"""
+@renders m("p", name=7) """<p name="7"></p>"""
+@renders m("p", name=7.0) """<p name="7"></p>"""
+#=
 # squishcase renders as squishcase
 @show m("p"; squishname=7.0)
 # camelCase renders as kebab-case
