@@ -7,16 +7,21 @@ macro errors(expr)
     end
 end
 
-
+#=
 ## Tags
 # Can render tags
 @show m("p")
+# Cannot render nonempty tags
+@errors m("")
 # Tags can be <: AbstractString
 @show m(SubString("xspan", 2))
 # Tags *must* be <: AbstractString
 @test_throws MethodError m(1)
 @test_throws MethodError m('1')
 @test_throws MethodError m(1.0)
+# Tags are normalized to strip whitespace
+@show m(" p ") == m("p")
+@show m("\tp\t") == m("p")
 
 ## Attributes
 # Can render a tag with an attribute
@@ -27,17 +32,17 @@ end
 @show m("p", name='7')
 @show m("p", name=7)
 @show m("p", name=7.0)
-# Squishcase renders as squishcase
+# squishcase renders as squishcase
 @show m("p"; squishname=7.0)
-# cameCase renders as kebab-case
+# camelCase renders as kebab-case
 @show m("p"; camelName=7.0)
 # kebab-case renders as kebab-case
 @show m("p"; [Symbol("kebab-name") => 7]...)
 # Can start attribute names with numbers
 @show m("p"; [Symbol("7-name") => 7]...)
-# We prevent NaN attribute values by default
+# Disallow NaN attribute values by default
 @errors m("p", name=NaN)
-# We prevent spaces in attribute names by default
+# Disallow spaces in attribute names by default
 @errors m("p"; [Symbol("7 space name") => 7]...)
 # Passing a string as an attribute name preserves it un-normalized
 @show Hyperscript.Node(Hyperscript.DEFAULT_DOM_CONTEXT, "p", [], ["camelName" => 7.0])
@@ -132,14 +137,11 @@ p("child")
 p(attr="value")
 
 const pstuff = m("p", attr="valueOne", "childOne")
+# Children in node application append to existing children
 pstuff("childTwo")
+# Attributes in node application add to existing attributes
 pstuff(attrTwo="valueTwo")
-
-# New attributes are added
-pstuff(attrTwo="valueTwo")
-# New children are added
-pstuff("childTwo")
-# Existing attributes override
+# New values for attributes in node application override existing values
 pstuff(attr="valueTwo")
 
 # Dot syntax for class attributes
@@ -155,8 +157,73 @@ pstuff(attr="valueTwo")
 # Dot syntax with regular class specification as an override
 @show m("p", class="a")(class="b")
 
+## CSS nodes
+# Tags must be strings
+@show css("p")
+@test_throws MethodError css(7)
+
 # No class attribute override for CSS nodes
 @errors css("p").a
+# empty rules are allowed
+@show css("p")
+# empty tags are disallowed
+@errors css("")
+# attributes render inside nodes
+@show css("p", color="red")
+# NaN attributes are disallowed
+@errors css("p", color=NaN)
+# empty attributes are disallowed
+@errors css("p", color="")
+# child nodes render flattened
+@show css("p", css("q", color="blue"))
+# child nodes of @media nodes render nested
+@show css("@media (min-width: 1024px)",
+    css("p", color="red"))
+# camelCase renders as kebab-case
+@show css("p", fontSize="12px")
 
-# todo: tests for CSS
-# todo: tests for Styled
+# Tags are normalized to strip whitespace
+@show css(" p ") == css("p")
+@show css("\tp\t") == css("p")
+
+# Media tags are recognized
+@show Hyperscript.ismedia(css("@media (min-width: 700px)"))
+# Non-media tags are not recognized as media tags
+@show Hyperscript.ismedia(css("p"))
+
+# CSS children can be CSS nodes
+@show css("p", css("p"))
+# CSS children cannot be non-CSS nodes
+@errors css("p", m("p"))
+
+# CSS tags are not escaped
+@show css("p<")
+# CSS attribute names are not escaped
+@show css("p", attr="value<")
+# CSS attribute values are not escaped
+@show css("p"; [Symbol("attr<") => "<"]...)
+
+# todo: a css node with an attribute that autoprefixes into multiple attributes
+# we currently don't do antoprefixing so there is no way to test the capability
+# short of creating our own node type.
+
+=#
+
+# `Style`s can be created
+s1 = Style(css("p", color="red"))
+# `Style`s can be created from multiple CSS rules
+s2 = Style(css("p", color="red"), css("span", color="blue"))
+
+# The tag, children, and attrs functions for `Styled` nodes are defined
+@show Hyperscript.tag(s1(m("p")))
+@show Hyperscript.children(s1(m("p")))
+@show Hyperscript.attrs(s1(m("p")))
+
+# Applied styles label children with a v-style
+@show s1(m("p"))
+# Applied styles label children recursively
+@show s1(m("p", m("p")))
+# Applied styles do not propagate to `Styled` children
+@show s1(m("p", s2(m("p"))))
+# Applying a styled node to a new node does not style those new children
+@show s1(m("p"))(m("span"))
