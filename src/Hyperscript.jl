@@ -38,6 +38,12 @@ struct Node{T} <: AbstractNode{T}
     attrs::Dict{String, Any}
 end
 
+function Base.:(==)(x::Node{T}, y::Node{T}) where T
+    context(x) == context(y) && tag(x) == tag(y) && children(x) == children(y) && attrs(x) == attrs(y)
+end
+Base.:(==)(x::Node, y::Node) = false
+
+
 function Node(ctx::Context{T}, tag::AbstractString, children, attrs) where T
     tag = validatetag(ctx, normalizetag(ctx, tag))
     Node{T}(
