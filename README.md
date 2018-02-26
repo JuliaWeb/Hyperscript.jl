@@ -185,6 +185,8 @@ css(".foo", width=(50px + 50px) + 2em)
 # turns into .foo {width: calc(100px + 2em);}
 ```
 
+Supported units are `px`, `em`, `rem`, `vh`, `vw`, `vmin`, `vmax`, and `pc` (percent).
+
 ---
 
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points:
