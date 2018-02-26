@@ -239,6 +239,7 @@ s1 = Style(css("p", color="red"))
 s2 = Style(css("p", color="red"), css("span", color="blue"))
 
 # The tag, children, and attrs functions for `Styled` nodes are defined
+# and return the right things
 @test Hyperscript.tag(s1(m("p"))) == "p"
 @test Hyperscript.children(s1(m("p"))) == Any[]
 @test Hyperscript.attrs(s1(m("p"))) == Dict{String,Any}(["v-style1" => nothing])
