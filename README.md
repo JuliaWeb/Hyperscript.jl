@@ -114,7 +114,7 @@ css("@media (min-width: 1024px)",
     css("p", color="red"))
 # turns into
 # @media (min-width: 1024px) {
-# p { color: red; }
+#   p { color: red; }
 # }
 ```
 
