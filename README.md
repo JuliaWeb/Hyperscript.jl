@@ -9,6 +9,7 @@ When using this library you automatically get:
 * Safe and automatic HTML-escaping.
 * Validation to catch common mistakes early.
 * Lightweight and optional support for scoped CSS.
+* A simple and optional system for CSS unit arithmetic.
 
 ## Usage
 
