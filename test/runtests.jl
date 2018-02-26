@@ -39,7 +39,7 @@ end
 @renders m("p", name="value") "<p name=\"value\"></p>"
 # Can render a tag with multiple attributes
 @test let x = string(m("p", a="x", b="y"))
-    # Account for the two possible result orderings
+    # Account for the two possible attribute orderings
     x == s`<p a="x" b="y"></p>` || x == s`<p b="y" a="x"></p>`
 end
 # Render tags with various non-string attribute values
@@ -162,7 +162,7 @@ const pstuff = m("p", attr="valueOne", "childOne")
 @renders pstuff("childTwo") s`<p attr="valueOne">childOnechildTwo</p>`
 # Attributes in node application add to existing attributes
 @test let x = string(pstuff(attrTwo="valueTwo"))
-    # Account for the two possible result orderings
+    # Account for the two possible attribute orderings
     x == s`<p attr-two="valueTwo" attr="valueOne">childOne</p>` ||
         x == s`<p attr="valueOne" attr-two="valueTwo">childOne</p>`
 end
