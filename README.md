@@ -1,25 +1,22 @@
 # Hyperscript
 
+Hyperscript is a Julia package for representing HTML, SVG, and CSS expressions using native Julia syntax.
 
-Hyperscript is a Julia package for representing HTML and SVG expressions using native Julia syntax.
+When using this library you automatically get:
 
-```
-Pkg.clone("https://github.com/yurivish/Hyperscript.jl")
-using Hyperscript
-```
+* A concise DSL for writing HTML, SVG, and CSS.
+* Flexible ways to combine DOM pieces together into larger components.
+* Safe and automatic HTML-escaping.
+* Validation to catch common mistakes early.
+* Lightweight and optional support for scoped CSS.
+
+## Usage
 
 Hyperscript introduces the `m` function for creating markup nodes:
 
 ```
 m("div", class="entry",
     m("h1", "An Important Announcement"))
-```
-
-Nodes are validated as they are created. Hyperscript checks for valid tag names, and tag-attribute pairs:
-
-```
-m("snoopy") # ERROR: snoopy is not a valid HTML or SVG tag
-m("div", mood="facetious") # ERROR: mood is not a valid attribute name
 ```
 
 Nodes can be used as a templates:
@@ -44,7 +41,6 @@ Chained dot calls turn into multiple classes:
 m("div").header.entry
 ```
 
-
 The convenience macro `@tags` can be used to quickly declare common tags:
 
 ```
@@ -61,23 +57,24 @@ const entry = div.entry
 div(entry.(["$n Fast $n Furious" for n in 1:10])) # this joke is © Glen Chiacchieri
 ```
 
-Some attribute names, such as those with hyphens, can't be written as Julia identifiers. For those you can use either camelCase or squishcase and Hyperscript will convert them for you:
+Some attributes names are written using `kebab-case` and can't be easily written as Julia identifiers (since `-` is parsed as minus). You can write these using `camelCase` an Hyperscript will convert them for you:
 
 ```
-# These are both valid:
 m("meta", httpEquiv="refresh")
-m("meta", httpequiv="refresh")
+# renders as <meta http-equiv="refresh" />
 ```
 
-If you'd like to turn off validation you should use `m_novalidate`, which is just like `m` except that it doesn't validate or perform attribute conversion:
+Some attributes, however, are _supposed_ to be written in `camelCase`, such as `viewBox` in SVG. Do not fear — for these, you can use either `camelCase` or `squishcase` Hyperscript will do the right thing:
 
 ```
-import Hyperscript # Note import, not using
-const m = Hyperscript.m_novalidate
-
-m("snoopy") # <snoopy></snoopy>
-m("div", mood="facetious") # <div mood="facetious"></div>
+m("svg", viewBox="0 0 100 100")
+# renders as <svg viewBox="0 0 100 100"><svg>
 ```
 
+Hyperscript automatically HTML-escape the children of DOM nodes. Sometimes you want to disable this, for example if you're writing an inline `<style>` or `<script>`. To turn off escaping for the contents of particular tags, use `@tags_noescape`:
 
-To validate more stringently against _just_ HTML or _just_ SVG, you can similarly use `Hyperscript.m_html` or `Hyperscript.m_svg`.
+
+```
+@tags_noescape script
+script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
+```
