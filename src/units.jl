@@ -10,8 +10,8 @@ Base.:+(x::Unit{S}, y::Unit{S}) where {S} = Unit{S}(x.value + y.value)
 Base.:-(x::Unit{S}, y::Unit{S}) where {S} = Unit{S}(x.value - y.value)
 
 # scalar * unit, unit / scalar
-Base.:*(x::Number, y::U) where {U <: Unit} = U(x * y.value)
-Base.:/(x::U, y::Number) where {U <: Unit} = U(x.value / y)
+Base.:*(x::Number, y::Unit{S}) where {S} = Unit{S}(x * y.value)
+Base.:/(x::Unit{S}, y::Number) where {S} = Unit{S}(x.value / y)
 
 # calc() expressions
 struct Calc
@@ -49,5 +49,3 @@ const vw = BareUnit{Unit{:vw}}()
 const vmin = BareUnit{Unit{:vmin}}()
 const vmax = BareUnit{Unit{:vmax}}()
 const pc = BareUnit{Unit{Symbol("%")}}()
-
-@show 50px + 2 * 100px
