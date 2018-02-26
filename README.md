@@ -1,15 +1,14 @@
 # Hyperscript
 
-Hyperscript is a package for writing HTML, SVG, and CSS using native Julia syntax.
+Hyperscript is a package for working with HTML, SVG, and CSS in Julia.
 
 When using this library you automatically get:
 
 * A concise DSL for writing HTML, SVG, and CSS.
 * Flexible ways to combine DOM pieces together into larger components.
 * Safe and automatic HTML-escaping.
-* Validation for a few common mistakes.
 * Lightweight and optional support for scoped CSS.
-* A simple and optional system for CSS unit arithmetic.
+* Lightweight and optional support for CSS unit arithmetic (`(5px + 5px) + 2em`).
 
 ## Usage
 
@@ -62,21 +61,21 @@ Attribute names with hyphens can be written using camelCase:
 
 ```
 m("meta", httpEquiv="refresh")
-# turns into: <meta http-equiv="refresh" />
+# turns into <meta http-equiv="refresh" />
 ```
 
 For attributes that are _meant_ to be camelCase, Hyperscript still does the right thing:
 
 ```
 m("svg", viewBox="0 0 100 100")
-# turns into: <svg viewBox="0 0 100 100"><svg>
+# turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
 Hyperscript automatically HTML-escapes children of DOM nodes:
 
 ```
 m("p", "I am a paragraph with a < inside it")
-# turns into: <p>I am a paragraph with a &#60; inside it</p>
+# turns into <p>I am a paragraph with a &#60; inside it</p>
 ```
 
 You can disable escaping using `@tags_noescape` for writing an inline style or script:
@@ -92,7 +91,7 @@ In addition to HTML and SVG, Hyperscript also supports CSS:
 
 ```
 css(".entry", fontSize="14px")
-# turns into: .entry { font-size: 14px; }
+# turns into .entry { font-size: 14px; }
 ```
 
 CSS nodes can be nested inside each other:
@@ -103,7 +102,7 @@ css(".entry",
     css("h1", textDecoration="underline")
     css("> p", color="#999"))
 
-# turns into:
+# turns into
 # .entry { font-size: 14px; }
 # .entry h1 { text-decoration: underline; }
 # .entry > p { color: #999; }
@@ -115,7 +114,7 @@ css(".entry",
 css("@media (min-width: 1024px)",
     css("p", color="red"))
 
-# turns into:
+# turns into
 # @media (min-width: 1024px) {
 # p { color: red; }
 # }
@@ -123,9 +122,9 @@ css("@media (min-width: 1024px)",
 
 ## Extras 
 
-There are a few things out of this quick introduction, both optional:
+There are a few things left out of this quick introduction:
 
-* The scoped style system allows you to define local styles that apply to only part of a page
+* The scoped style system which allows you to define local styles that apply to only part of a page
 * You can compute with CSS units using Julia syntax: 
 
 ```
@@ -133,11 +132,11 @@ import Hyperscript: px, em
 println((5px + 5px) + 2em) # "calc(10px + 2em)"
 ```
 
-I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points of the library:
+I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points:
 
-* All nodes and node properties are immutable — any derivation of new nodes from existing nodes will not affect properties of the existing nodes.
-* Calling an existing node with with more children creates a new node with the new children appended to the existing children.
-* Calling an existing node with more attributes will create a new node whose attributes are the `merge` of the existing and new attributes.
+* Nodes are immutable — any derivation of new nodes from existing nodes will not leave existing nodes unchanged.
+* Calling an existing node with with more children makes a new node with the new children appended.
+* Calling an existing node with more attributes makes a new node whose attributes are the `merge` of the existing and new attributes.
 * `div.fooBar` adds the CSS class `foo-bar`. To add the camelCase class `fooBar` you can use the dot syntax with a string: `div."fooBar"`
 * The dot syntax always _adds_ to the CSS class. This is why chaining (`div.foo.bar.baz`) adds all three classes in sequence. 
 * Tags defined with `@tags_noescape` only "noescape" one level deep. Children of children will still be escaped according to their own rules.
