@@ -57,21 +57,27 @@ const entry = div.entry
 div(entry.(["$n Fast $n Furious" for n in 1:10])) # this joke is © Glen Chiacchieri
 ```
 
-Some attributes names are written using `kebab-case` and can't be easily written as Julia identifiers (since `-` is parsed as minus). You can write these using `camelCase` an Hyperscript will convert them for you:
+Attribute names with hyphens can be written with camelCase:
 
 ```
 m("meta", httpEquiv="refresh")
-# renders as <meta http-equiv="refresh" />
+# <meta http-equiv="refresh" />
 ```
 
-Some attributes, however, are _supposed_ to be written in `camelCase`, such as `viewBox` in SVG. Do not fear — for these, you can use either `camelCase` or `squishcase` Hyperscript will do the right thing:
+Hyperscript will do the right thing for attributes that are _supposed_ to be camelCase:
 
 ```
 m("svg", viewBox="0 0 100 100")
-# renders as <svg viewBox="0 0 100 100"><svg>
+# <svg viewBox="0 0 100 100"><svg>
 ```
 
-Hyperscript automatically HTML-escape the children of DOM nodes. Sometimes you want to disable this, for example if you're writing an inline `<style>` or `<script>`. To turn off escaping for the contents of particular tags, use `@tags_noescape`:
+Hyperscript automatically HTML-escape the children of DOM nodes:
+```
+m("p", "I am a paragraph with a < inside it")
+# <p>I am a paragraph with a &#60; inside it</p>
+```
+
+You can disable escaping if you're writing an inline `<style>` or `<script>`using `@tags_noescape`:
 
 
 ```
