@@ -120,22 +120,27 @@ css("@media (min-width: 1024px)",
 
 ## Scoped Styles
 
-Hyperscript supports scoped styles. They are implemented by automatically adding unique attributes to nodes and selecting them via [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors):
+Hyperscript supports scoped styles. They are implemented by adding unique attributes to nodes and selecting them via [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors):
 
 ```
 @tags p
 @tags_noescape style
 
 # Create a scoped `Style` object
-s1 = Style(css("p", fontWeight="bold"))
+s1 = Style(css("p", fontWeight="bold"), css("span", color="red"))
 
 # Apply the style to a DOM node
 s1(p("hello"))
 # turns into <p v-style1>hello</p>
 
-# Insert the corresponding style into a <style> tag
+# Insert the corresponding styles into a <style> tag
 style(styles(s1))
-# turns into <style>p[v-style1] {font-weight: bold;}</style>
+# turns into
+# <style>
+# p[v-style1] {font-weight: bold;}
+# span[v-style1] {color: red;}
+# </style>
+
 ```
 
 Scoped styles are scoped to the subtree of the DOM to which they are applied. Styles on a parent node do not leak into styled child nodes, which function as cascade barriers:
@@ -154,13 +159,14 @@ style(styles(s1), styles(s2))
 # turns into
 # <style>
 # p[v-style1] {font-weight: bold;}
+# span[v-style1] {color: red;}
 # p[v-style2] {color: blue;}
 # </style>
 ```
 
 ## CSS Units
 
-Specifying CSS attributes as strings can get verbose, so Hyperscript supports a shorter syntax for arithmetic with CSS units:
+Hyperscript supports a concise syntax for CSS unit arithmetic:
 
 ```
 using Hyperscript
