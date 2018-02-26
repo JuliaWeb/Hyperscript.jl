@@ -150,7 +150,7 @@ Scoped styles are scoped to the DOM subtree where they are applied. Styled nodes
 s2 = Style(css("p", color="blue"))
 
 # Apply `s1` to the parent and `s2` to a child.
-# Note the `s1` style did not apply to the child styled with `s2`.
+# Note the `s1` style does not apply to the child styled with `s2`.
 s1(p(p("outer"), s2(p("inner"))))
 # turns into
 # <p v-style1>
