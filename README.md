@@ -77,7 +77,7 @@ m("p", "I am a paragraph with a < inside it")
 # <p>I am a paragraph with a &#60; inside it</p>
 ```
 
-You can disable escaping if you're writing an inline `<style>` or `<script>`using `@tags_noescape`:
+You can disable escaping using `@tags_noescape` for e.g. writing an inline style or script:
 
 
 ```
