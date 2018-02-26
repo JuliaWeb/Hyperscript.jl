@@ -153,7 +153,10 @@ s2 = Style(css("p", color="blue"))
 # Note the `s1` style did not apply to the child styled with `s2`.
 s1(p(p("outer"), s2(p("inner"))))
 # turns into
-# <p v-style1><p v-style1>outer</p><p v-style2>inner</p></p>
+# <p v-style1>
+#   <p v-style1>outer</p>
+#   <p v-style2>inner</p>
+# </p>
 
 style(styles(s1), styles(s2))
 # turns into
