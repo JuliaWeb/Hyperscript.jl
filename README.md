@@ -99,7 +99,7 @@ CSS nodes can be nested inside each other:
 ```
 css(".entry",
     fontSize="14px",
-    css("h1", textDecoration="underline")
+    css("h1", textDecoration="underline"),
     css("> p", color="#999"))
 # turns into
 # .entry { font-size: 14px; }
