@@ -112,4 +112,12 @@ css(".entry",
 
 Those are the basics of Hyperscript!
 
-There are a few things left to document, but they're both optional: the scoped style system allows you to define local styles that apply to only part of a page, and CSS units support lets you do arithmetic with CSS units using Julia syntax: If you `import Hyperscript: px, em` you can then write `(5px + 5px) + 2em` which renders as `calc(10px + 2em)`.
+There are a few things left to document, but they're both optional:
+
+* The scoped style system allows you to define local styles that apply to only part of a page
+* CSS units support lets you do arithmetic with CSS units using Julia syntax: 
+
+```
+import Hyperscript: px, em
+println((5px + 5px) + 2em) # "calc(10px + 2em)"
+```
