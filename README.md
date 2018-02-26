@@ -100,6 +100,7 @@ css(".entry",
     css("h1", textDecoration="underline")
     css("> p", color="#999")
 )
+
 # turns into:
 # .entry { font-size: 14px; }
 # .entry h1 { text-decoration: underline; }
@@ -111,6 +112,7 @@ css(".entry",
 ```
 css("@media (min-width: 1024px)",
     css("p", color="red"))
+
 # turns into:
 # @media (min-width: 1024px) {
 # p { color: red; }
