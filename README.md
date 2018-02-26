@@ -61,24 +61,21 @@ Attribute names with hyphens can be written using camelCase:
 
 ```
 m("meta", httpEquiv="refresh")
-# turns into:
-# <meta http-equiv="refresh" />
+# turns into: <meta http-equiv="refresh" />
 ```
 
 For attributes that are _meant_ to be camelCase, Hyperscript still does the right thing:
 
 ```
 m("svg", viewBox="0 0 100 100")
-# turns into:
-# <svg viewBox="0 0 100 100"><svg>
+# turns into: <svg viewBox="0 0 100 100"><svg>
 ```
 
 Hyperscript automatically HTML-escapes children of DOM nodes:
 
 ```
 m("p", "I am a paragraph with a < inside it")
-# turns into:
-# <p>I am a paragraph with a &#60; inside it</p>
+# turns into: <p>I am a paragraph with a &#60; inside it</p>
 ```
 
 You can disable escaping using `@tags_noescape` for writing an inline style or script:
@@ -92,8 +89,7 @@ In addition to HTML and SVG, Hyperscript also supports CSS:
 
 ```
 css(".entry", fontSize="14px")
-# turns into:
-# .entry { font-size: 14px; }
+# turns into: .entry { font-size: 14px; }
 ```
 
 CSS nodes can be nested inside each other:
