@@ -137,8 +137,8 @@ s1(p("hello"))
 style(styles(s1))
 # turns into
 # <style>
-# p[v-style1] {font-weight: bold;}
-# span[v-style1] {color: red;}
+#   p[v-style1] {font-weight: bold;}
+#   span[v-style1] {color: red;}
 # </style>
 
 ```
@@ -161,9 +161,9 @@ s1(p(p("outer"), s2(p("inner"))))
 style(styles(s1), styles(s2))
 # turns into
 # <style>
-# p[v-style1] {font-weight: bold;}
-# span[v-style1] {color: red;}
-# p[v-style2] {color: blue;}
+#   p[v-style1] {font-weight: bold;}
+#   span[v-style1] {color: red;}
+#   p[v-style2] {color: blue;}
 # </style>
 ```
 
