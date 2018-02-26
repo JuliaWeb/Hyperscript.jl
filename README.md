@@ -54,33 +54,54 @@ Arrays, tuples, and generators are recursively flattened, linearizing nested str
 ```
 @tags div h1
 const entry = div.entry
-div(entry.(["$n Fast $n Furious" for n in 1:10])) # this joke is © Glen Chiacchieri
+div(entry.(["$n Fast $n Furious" for n in 1:10])) # joke © Glen Chiacchieri
 ```
 
-Attribute names with hyphens can be written with camelCase:
+Attribute names with hyphens can be written using camelCase:
 
 ```
 m("meta", httpEquiv="refresh")
 # <meta http-equiv="refresh" />
 ```
 
-Hyperscript will do the right thing for attributes that are _supposed_ to be camelCase:
+Hyperscript does the right thing for attributes that are _meant_ to be camelCase:
 
 ```
 m("svg", viewBox="0 0 100 100")
 # <svg viewBox="0 0 100 100"><svg>
 ```
 
-Hyperscript automatically HTML-escape the children of DOM nodes:
+Hyperscript automatically HTML-escapes children of DOM nodes:
+
 ```
 m("p", "I am a paragraph with a < inside it")
 # <p>I am a paragraph with a &#60; inside it</p>
 ```
 
-You can disable escaping using `@tags_noescape` for e.g. writing an inline style or script:
-
+You can disable escaping using `@tags_noescape` for writing an inline style or script:
 
 ```
 @tags_noescape script
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 ```
+
+In addition to HTML and SVG, Hyperscript also supports CSS:
+
+```
+css(".entry", fontSize="14px")
+# .entry { font-size: 14px; }
+```
+
+CSS nodes can be nested inside each other:
+
+```
+css(".entry",
+    fontSize="14px",
+    css("h1", textDecoration="underline")
+    css("> p", color="#999")
+)
+# .entry { font-size: 14px; }
+# .entry h1 { text-decoration: underline; }
+# .entry > p { color: #999; }
+```
+
