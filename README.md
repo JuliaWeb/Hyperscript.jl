@@ -65,7 +65,7 @@ m("meta", httpEquiv="refresh")
 # <meta http-equiv="refresh" />
 ```
 
-Hyperscript does the right thing for attributes that are _meant_ to be camelCase:
+For attributes that are _meant_ to be camelCase, Hyperscript still does the right thing:
 
 ```
 m("svg", viewBox="0 0 100 100")
@@ -110,3 +110,6 @@ css(".entry",
 # .entry > p { color: #999; }
 ```
 
+Those are the basics of Hyperscript!
+
+There are a few things left to document, but they're both optional: the scoped style system allows you to define local styles that apply to only part of a page, and CSS units support lets you do arithmetic with CSS units using Julia syntax: If you `import Hyperscript: px, em` you can then write `(5px + 5px) + 2em` which renders as `calc(10px + 2em)`.
