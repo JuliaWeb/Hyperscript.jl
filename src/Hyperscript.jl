@@ -186,8 +186,8 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
 
 normalizetag(ctx::Context{DOM}, tag) = strip(tag)
 
-# The simplest normalization — don't pay attention to the tag and do kebab-case
-# by default. Allows both squishcase and camelCase for the attributes above.
+# The simplest normalization — kebab-case and don't pay attention to the tag.
+# Allows both squishcase and camelCase for the attributes above.
 # If the attribute name is a string and not a Symbol (using the Node constructor),
 # then no normalization is performed — this way you can pass any attribute you'd like.
 function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair{Symbol, <:Any})
@@ -196,7 +196,7 @@ function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair{Symbol, <:Any
 end
 
 function normalizeattr(ctx::Context{DOM}, tag, attr::Pair{<:AbstractString, <:Any})
-    # Note: This must change if we begin to normalize values
+    # Note: This must implementation must change if we begin to normalize values
     attr
 end
 
@@ -326,7 +326,7 @@ end
 function validateattr(ctx::Context{CSS}, tag, attr)
     name, value = attr
     last(attr) == nothing && error("CSS attribute value may not be `nothing`: $(stringify(ctx, tag, attr))")
-    isempty(last(attr)) && error("CSS attribute value may not be empty: $(stringify(ctx, tag, attr))")
+    last(attr) == "" && error("CSS attribute value may not be the empty string: $(stringify(ctx, tag, attr))")
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
         error("NaN values are not allowed for CSS nodes: $(stringify(ctx, tag, attr))")
     end
@@ -398,5 +398,14 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
     push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
 )
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x), s)
+
+#=
+future enhancements
+    - when applying a Style to a node only add the `v-style` marker to those nodes that may be affected by a style selector.
+    - improve the context system to allow Kind-specific contextual settings (e.g. CSS-specific validation settings).
+    - add linting validations for e.g. <circle x=... />
+    - autoprefix css attributes based on some criterion, perhaps from caniuse.com
+
+=#
 
 end # module
