@@ -1,13 +1,13 @@
 # Hyperscript
 
-Hyperscript is a Julia package for writing HTML, SVG, and CSS expressions using native Julia syntax.
+Hyperscript is a package for writing HTML, SVG, and CSS using native Julia syntax.
 
 When using this library you automatically get:
 
 * A concise DSL for writing HTML, SVG, and CSS.
 * Flexible ways to combine DOM pieces together into larger components.
 * Safe and automatic HTML-escaping.
-* Validation to catch common mistakes early.
+* Validation for a few common mistakes.
 * Lightweight and optional support for scoped CSS.
 * A simple and optional system for CSS unit arithmetic.
 
