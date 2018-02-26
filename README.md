@@ -118,7 +118,7 @@ css("@media (min-width: 1024px)",
 # }
 ```
 
-There are a few things left to document, but they're both optional:
+There are a few things out of this quick introduction, both optional:
 
 * The scoped style system allows you to define local styles that apply to only part of a page
 * You can compute with CSS units using Julia syntax: 
@@ -127,3 +127,11 @@ There are a few things left to document, but they're both optional:
 import Hyperscript: px, em
 println((5px + 5px) + 2em) # "calc(10px + 2em)"
 ```
+
+I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points of the library:
+
+* `m("div").fooBar` adds the CSS class `foo-bar`. To add the class `fooBar` using the dot syntax, use a String: `m("div")."fooBar"`.
+* The dot syntax always _adds_ to the CSS class. This is why chaining — `div.foo.bar` — works
+* Calling an existing node with with more children will append them to the existing children. Calling an existing node with more attributes will add an new attributes and _override_ any existing ones.
+* Tags defined with `@tags_noescape` only "noescape" one level deep — any children-of-children will still be escaped according to their own rules.
+* DOM children and attributes are escaped. CSS nodes are not escaped. CSS nodes inside DOM nodes are escaped.
