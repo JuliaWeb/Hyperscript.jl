@@ -120,35 +120,37 @@ css("@media (min-width: 1024px)",
 
 ## Scoped Styles
 
-Hyperscript supports scoped styles implemented by adding unique attributes to nodes and selecting them via [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors):
+Hyperscript supports scoped styles. They are implemented by automatically adding unique attributes to nodes and selecting them via [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors):
 
 ```
 @tags p
 @tags_noescape style
 
 # Create a scoped `Style` object
-s = Style(css("p", fontWeight="bold"))
+s1 = Style(css("p", fontWeight="bold"))
 
-s(p("hello")) # Apply the style to a DOM node
+# Apply the style to a DOM node
+s1(p("hello"))
 # turns into <p v-style1>hello</p>
 
 # Insert the corresponding style into a <style> tag
-style(styles(s))
+style(styles(s1))
 # turns into <style>p[v-style1] {font-weight: bold;}</style>
 ```
 
-Scoped styles are scoped to the subtree of the DOM to which they are applied. Scoped styles on a parent node do not leak into styled child nodes, which function as cascade barriers:
+Scoped styles are scoped to the subtree of the DOM to which they are applied. Styles on a parent node do not leak into styled child nodes, which function as cascade barriers:
 
 ```
 # Create a second scoped style
 s2 = Style(css("p", color="blue"))
 
-# Apply `s` to the parent and `s2` to a child.
-# Note the `s` style did not apply to the child styled with `s2`.
-s(p(s2(p("hello"))))
-# turns into <p v-style1><p v-style2>hello</p></p>
+# Apply `s1` to the parent and `s2` to a child.
+# Note the `s1` style did not apply to the child styled with `s2`.
+s1(p(p("outer"), " ", s2(p("inner"))))
+# turns into
+# <p v-style1><p v-style1>outer</p> <p v-style2>inner</p></p>
 
-style(styles(s), styles(s2))
+style(styles(s1), styles(s2))
 # turns into
 # <style>
 # p[v-style1] {font-weight: bold;}
