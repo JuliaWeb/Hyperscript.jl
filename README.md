@@ -106,6 +106,17 @@ css(".entry",
 # .entry > p { color: #999; }
 ```
 
+`@media` queries are also supported:
+
+```
+css("@media (min-width: 1024px)",
+    css("p", color="red"))
+# turns into:
+# @media (min-width: 1024px) {
+# p { color: red; }
+# }
+```
+
 There are a few things left to document, but they're both optional:
 
 * The scoped style system allows you to define local styles that apply to only part of a page
