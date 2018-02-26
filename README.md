@@ -135,7 +135,7 @@ println((5px + 5px) + 2em) # "calc(10px + 2em)"
 
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points of the library:
 
-* All nodes and node properties are immutable — any nodes derived from existing nodes will be conceptually distinct entities.
+* All nodes and node properties are immutable — any derivation of new nodes from existing nodes will not affect properties of the existing nodes.
 * Using `nothing` as the value of a DOM attribute creates a valueless attribute, e.g. `<input checked />`.
 * Calling an existing node with with more children creates a new node with the new children appended to the existing children.
 * Calling an existing node with more attributes will create a new node whose attributes are the `merge` of the existing and new attributes.
