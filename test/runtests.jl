@@ -82,6 +82,11 @@ end
 # Can render mixed-type children inside an array
 @renders m("p", [m("span", "child", 1), 2]) s`<p><span>child1</span>2</p>`
 
+## Accessors
+@test Hyperscript.tag(m("p")) == "p"
+@test Hyperscript.attrs(m("p", attr="value")) == Dict{String,Any}("attr" => "value")
+@test Hyperscript.children(m("p", "child")) == Any["child"]
+
 ## Generators, arrays, and tuples
 # Arrays are flattened
 @renders m("p", [1, 2, 3]) s`<p>123</p>`
@@ -228,8 +233,8 @@ end
 # CSS attribute values are not escaped
 @renders css("p", attr="value<") s`p {attr: value<;}`
 
-# todo: test a css node with an attribute that autoprefixes into multiple attributes
-# we currently don't do antoprefixing so there is no way to test the capability
+# todo: test a css node with an attribute that autoprefixes into multiple attributes.
+# We currently don't do antoprefixing so there is no way to test the capability
 # short of creating our own node type.
 
 ## `Style`s and `StyledNode`s
