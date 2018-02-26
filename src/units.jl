@@ -10,7 +10,7 @@ Base.:+(x::Unit{S}, y::Unit{S}) where {S} = Unit{S}(x.value + y.value)
 Base.:-(x::Unit{S}, y::Unit{S}) where {S} = Unit{S}(x.value - y.value)
 
 # scalar * unit, unit / scalar
-Base.:*(x::Number, y::U) where {U <: Unit} = U(x + y.value)
+Base.:*(x::Number, y::U) where {U <: Unit} = U(x * y.value)
 Base.:/(x::U, y::Number) where {U <: Unit} = U(x.value / y)
 
 # calc() expressions
@@ -59,3 +59,4 @@ const pc = BareUnit{Unit{Symbol("%")}}()
 # @show 5 * (1px + 2em)
 # @show 3.2 * (4.3em + 1px + 3px)
 
+@show 50px + 2 * 100px

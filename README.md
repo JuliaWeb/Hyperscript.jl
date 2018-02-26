@@ -101,8 +101,6 @@ css(".entry",
     fontSize="14px",
     css("h1", textDecoration="underline")
     css("> p", color="#999"))
-
-# turns into
 # .entry { font-size: 14px; }
 # .entry h1 { text-decoration: underline; }
 # .entry > p { color: #999; }
@@ -113,24 +111,66 @@ css(".entry",
 ```
 css("@media (min-width: 1024px)",
     css("p", color="red"))
-
-# turns into
 # @media (min-width: 1024px) {
 # p { color: red; }
 # }
 ```
 
-## Extras 
+## Scoped Styles
 
-There are a few things left out of this quick introduction:
-
-* The scoped style system which allows you to define local styles that apply to only part of a page
-* Arithmetic with CSS units using Julia syntax:
+Hyperscript supports scoped styles implemented via the [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors) for unique attributes:
 
 ```
+@tags p
+@tags_noescape style
+
+# Create a scoped `Style` object
+s = Style(css("p", fontWeight="bold"))
+
+s(p("hello")) # Apply the style to a DOM node
+# turns into <p v-style1>hello</p>
+
+# Insert the corresponding style into a <style> tag
+style(styles(s))
+# turns into <style>p[v-style1] {font-weight: bold;}</style>
+```
+
+Scoped styles are scoped to the subtree of the DOM to which they are applied. Scoped styles on a parent node do not leak into styled child nodes, which function as cascade barriers:
+
+```
+# Create a second scoped style
+s2 = Style(css("p", color="blue"))
+
+# Apply `s` to the parent and `s2` to a child node
+s(p(s2(p("hello"))))
+# turns into <p v-style1><p v-style2>hello</p></p>
+
+style(styles(s), styles(s2))
+# <style>
+# p[v-style1] {font-weight: bold;}
+# p[v-style2] {color: blue;}
+# </style>
+```
+
+## CSS Units
+
+Specifying CSS attributes as strings can get verbose, so Hyperscript supports a shorter syntax for arithmetic with CSS units:
+
+```
+using Hyperscript
 import Hyperscript: px, em
-println((5px + 5px) + 2em) # "calc(10px + 2em)"
+
+css(".foo", width=50px)
+# turns into .foo {width: 50px;}
+
+css(".foo", width=50px + 2 * 100px)
+# turns into .foo {width: 250px;}
+
+css(".foo", width=(50px + 50px) + 2em)
+# turns into .foo {width: calc(100px + 2em);}
 ```
+
+---
 
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points:
 
