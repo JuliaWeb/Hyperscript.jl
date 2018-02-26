@@ -143,7 +143,7 @@ style(styles(s1))
 
 ```
 
-Scoped styles are scoped to the subtree of the DOM to which they are applied. Styles on a parent node do not leak into styled child nodes, which function as cascade barriers:
+Scoped styles are scoped to the DOM subtree where they are applied. Styled nodes function as cascade barriers — parent styles do not leak into styled child nodes:
 
 ```
 # Create a second scoped style
