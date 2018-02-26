@@ -135,7 +135,7 @@ println((5px + 5px) + 2em) # "calc(10px + 2em)"
 
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points of the library:
 
-* `div.fooBar` adds the CSS class `foo-bar`. To add the class `fooBar` using the dot syntax, use a String: `div."fooBar"`.
+* `div.fooBar` adds the CSS class `foo-bar`. You can add the class `fooBar` in two ways: `div(class="fooBar")` or using the dot syntax with a string: `div."fooBar"`.
 * The dot syntax always _adds_ to the CSS class. This is how chaining (`div.foo.bar.baz`) adds all three classes in sequence.
 * Calling an existing node with with more children will append them to the existing children.
 * Calling an existing node with more attributes will add an new attributes and _override_ any existing ones.
