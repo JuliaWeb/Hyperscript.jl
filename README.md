@@ -121,7 +121,7 @@ css("@media (min-width: 1024px)",
 There are a few things left to document, but they're both optional:
 
 * The scoped style system allows you to define local styles that apply to only part of a page
-* CSS units support lets you do arithmetic with CSS units using Julia syntax: 
+* You can compute with CSS units using Julia syntax: 
 
 ```
 import Hyperscript: px, em
