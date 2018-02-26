@@ -259,3 +259,5 @@ s2 = Style(css("p", color="red"), css("span", color="blue"))
 @renders s1(m("p"))(m("span")) s`<p v-style1><span v-style1></span></p>`
 # Applying a styled node to a non-Node continues to work as usual
 @renders s1(m("p"))("string") s`<p v-style1>string</p>`
+# Applying a styled node to a Styled child preserves the child's style attribute
+@renders s1(m("p"))(s2(m("p"))) s`<p v-style1><p v-style2></p></p>`
