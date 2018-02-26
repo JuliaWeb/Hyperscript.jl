@@ -136,9 +136,9 @@ println((5px + 5px) + 2em) # "calc(10px + 2em)"
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points of the library:
 
 * All nodes and node properties are immutable — any derivation of new nodes from existing nodes will not affect properties of the existing nodes.
-* Using `nothing` as the value of a DOM attribute creates a valueless attribute, e.g. `<input checked />`.
 * Calling an existing node with with more children creates a new node with the new children appended to the existing children.
 * Calling an existing node with more attributes will create a new node whose attributes are the `merge` of the existing and new attributes.
 * `div.fooBar` adds the CSS class `foo-bar`. To add the camelCase class `fooBar` you can use the dot syntax with a string: `div."fooBar"`
 * The dot syntax always _adds_ to the CSS class. This is why chaining (`div.foo.bar.baz`) adds all three classes in sequence. 
 * Tags defined with `@tags_noescape` only "noescape" one level deep. Children of children will still be escaped according to their own rules.
+* Using `nothing` as the value of a DOM attribute creates a valueless attribute, e.g. `<input checked />`.
