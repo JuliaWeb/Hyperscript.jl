@@ -8,7 +8,7 @@ When using this library you automatically get:
 * Flexible ways to combine DOM pieces together into larger components.
 * Safe and automatic HTML-escaping.
 * Lightweight and optional support for scoped CSS.
-* Lightweight and optional support for CSS unit arithmetic (`(5px + 5px) + 2em`).
+* Lightweight and optional support for CSS unit arithmetic.
 
 ## Usage
 
@@ -125,7 +125,7 @@ css("@media (min-width: 1024px)",
 There are a few things left out of this quick introduction:
 
 * The scoped style system which allows you to define local styles that apply to only part of a page
-* You can compute with CSS units using Julia syntax: 
+* Arithmetic with CSS units using Julia syntax:
 
 ```
 import Hyperscript: px, em
@@ -135,8 +135,8 @@ println((5px + 5px) + 2em) # "calc(10px + 2em)"
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points:
 
 * Nodes are immutable — any derivation of new nodes from existing nodes will not leave existing nodes unchanged.
-* Calling an existing node with with more children makes a new node with the new children appended.
-* Calling an existing node with more attributes makes a new node whose attributes are the `merge` of the existing and new attributes.
+* Calling an existing node with with more children creates a new node with the new children appended.
+* Calling an existing node with more attributes creates a new node whose attributes are the `merge` of the existing and new attributes.
 * `div.fooBar` adds the CSS class `foo-bar`. To add the camelCase class `fooBar` you can use the dot syntax with a string: `div."fooBar"`
 * The dot syntax always _adds_ to the CSS class. This is why chaining (`div.foo.bar.baz`) adds all three classes in sequence. 
 * Tags defined with `@tags_noescape` only "noescape" one level deep. Children of children will still be escaped according to their own rules.
