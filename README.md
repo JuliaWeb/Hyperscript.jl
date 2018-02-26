@@ -101,6 +101,7 @@ css(".entry",
     fontSize="14px",
     css("h1", textDecoration="underline")
     css("> p", color="#999"))
+
 # turns into
 # .entry { font-size: 14px; }
 # .entry h1 { text-decoration: underline; }
@@ -112,6 +113,7 @@ css(".entry",
 ```
 css("@media (min-width: 1024px)",
     css("p", color="red"))
+
 # turns into
 # @media (min-width: 1024px) {
 #   p { color: red; }
@@ -135,6 +137,7 @@ s1(p("hello"))
 
 # Insert the corresponding styles into a <style> tag
 style(styles(s1))
+
 # turns into
 # <style>
 #   p[v-style1] {font-weight: bold;}
@@ -152,6 +155,7 @@ s2 = Style(css("p", color="blue"))
 # Apply `s1` to the parent and `s2` to a child.
 # Note the `s1` style did not apply to the child styled with `s2`.
 s1(p(p("outer"), s2(p("inner"))))
+
 # turns into
 # <p v-style1>
 #   <p v-style1>outer</p>
@@ -159,6 +163,7 @@ s1(p(p("outer"), s2(p("inner"))))
 # </p>
 
 style(styles(s1), styles(s2))
+
 # turns into
 # <style>
 #   p[v-style1] {font-weight: bold;}
