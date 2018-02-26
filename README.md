@@ -134,6 +134,4 @@ I'd like to create a more comprehensive guide to the full functionality availabl
 * The dot syntax always _adds_ to the CSS class. This is how chaining (`div.foo.bar.baz`) adds all three classes in sequence.
 * Calling an existing node with with more children will append them to the existing children.
 * Calling an existing node with more attributes will add an new attributes and _override_ any existing ones.
-* CSS nodes are not escaped.
-* CSS nodes inside DOM nodes are escaped.
 * Tags defined with `@tags_noescape` only "noescape" one level deep. Children of children will still be escaped according to their own rules.
