@@ -110,8 +110,6 @@ css(".entry",
 # .entry > p { color: #999; }
 ```
 
-Those are the basics of Hyperscript!
-
 There are a few things left to document, but they're both optional:
 
 * The scoped style system allows you to define local styles that apply to only part of a page
