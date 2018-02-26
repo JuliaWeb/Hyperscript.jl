@@ -86,6 +86,8 @@ You can disable escaping using `@tags_noescape` for writing an inline style or s
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 ```
 
+## CSS
+
 In addition to HTML and SVG, Hyperscript also supports CSS:
 
 ```
@@ -118,6 +120,8 @@ css("@media (min-width: 1024px)",
 # p { color: red; }
 # }
 ```
+
+## Extras 
 
 There are a few things out of this quick introduction, both optional:
 
