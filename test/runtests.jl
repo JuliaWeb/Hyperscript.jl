@@ -13,6 +13,7 @@ macro renders(x, s)
     end
 end
 
+# Convenience macro for strings with embedded double-quotes
 macro s_cmd(x)
     x
 end
