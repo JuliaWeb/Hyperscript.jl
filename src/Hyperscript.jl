@@ -1,7 +1,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style
+export @tags, @tags_noescape, m, css, Style, styles
 
 include(joinpath(@__DIR__, "units.jl"))
 
@@ -382,6 +382,8 @@ function Style(styles...)
     global style_id
     Style(style_id += 1, styles)
 end
+
+styles(x::Style) = x.styles
 
 render(io::IO, x::Style) = for node in x.styles
     render(io, node)

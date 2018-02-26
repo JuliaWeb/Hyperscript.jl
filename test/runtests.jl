@@ -243,6 +243,10 @@ s1 = Style(css("p", color="red"))
 # `Style`s can be created from multiple CSS rules
 s2 = Style(css("p", color="red"), css("span", color="blue"))
 
+# `Style` styles can be accessed via `styles`
+@tags_noescape style
+style(styles(s1)) == s`<style>p[v-style1] {color: red;}</style>`
+
 # The tag, children, and attrs functions for `Styled` nodes are defined
 # and return the right things
 @test Hyperscript.tag(s1(m("p"))) == "p"
