@@ -61,6 +61,7 @@ Attribute names with hyphens can be written using camelCase:
 
 ```
 m("meta", httpEquiv="refresh")
+# turns into:
 # <meta http-equiv="refresh" />
 ```
 
@@ -68,6 +69,7 @@ Hyperscript does the right thing for attributes that are _meant_ to be camelCase
 
 ```
 m("svg", viewBox="0 0 100 100")
+# turns into:
 # <svg viewBox="0 0 100 100"><svg>
 ```
 
@@ -75,6 +77,7 @@ Hyperscript automatically HTML-escapes children of DOM nodes:
 
 ```
 m("p", "I am a paragraph with a < inside it")
+# turns into:
 # <p>I am a paragraph with a &#60; inside it</p>
 ```
 
@@ -89,6 +92,7 @@ In addition to HTML and SVG, Hyperscript also supports CSS:
 
 ```
 css(".entry", fontSize="14px")
+# turns into:
 # .entry { font-size: 14px; }
 ```
 
@@ -100,6 +104,7 @@ css(".entry",
     css("h1", textDecoration="underline")
     css("> p", color="#999")
 )
+# turns into:
 # .entry { font-size: 14px; }
 # .entry h1 { text-decoration: underline; }
 # .entry > p { color: #999; }
