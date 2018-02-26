@@ -50,13 +50,4 @@ const vmin = BareUnit{Unit{:vmin}}()
 const vmax = BareUnit{Unit{:vmax}}()
 const pc = BareUnit{Unit{Symbol("%")}}()
 
-# @show 5px
-# @show 2px + 2px
-# @show 2px + 2.0px
-# @show 5 * 2px
-# @show 5 * 2.0px
-# @show 5.0 * 2px
-# @show 5 * (1px + 2em)
-# @show 3.2 * (4.3em + 1px + 3px)
-
 @show 50px + 2 * 100px

@@ -266,4 +266,14 @@ style(styles(s1)) == s`<style>p[v-style1] {color: red;}</style>`
 # Applying a styled node to a Styled child preserves the child's style attribute
 @renders s1(m("p"))(s2(m("p"))) s`<p v-style1><p v-style2></p></p>`
 
-# TODO: Unit tests (CSS units)
+## CSS Units
+import Hyperscript: px, em
+@test string(5px) == "5px"
+@test string(2px + 2px) == "4px"
+@test string(2px + 2.0px) == "4.0px"
+@test string(5 * 2px) == "10px"
+@test string(5 * 2.0px) == "10.0px"
+@test string(5.0 * 2px) == "10px"
+@test string(5 * (1px + 2em)) == "calc(5 * (1px + 2em))"
+@test string(5 * (1px + 3px + 4.3em)) == "calc(5 * (4px + 4.3em))"
+@test string(3.2 * (4.3em + 1px + 3px)) == "calc(3.2 * ((4.3em + 1px) + 3px))"
