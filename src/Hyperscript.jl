@@ -362,6 +362,7 @@ children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node(cs...; as...), x.style)
 render(io::IO, x::Styled) = render(io, x.node)
+render(x::Styled) = render(x.node)
 Base.show(io::IO, x::Styled) = render(io, x.node)
 
 struct Style
