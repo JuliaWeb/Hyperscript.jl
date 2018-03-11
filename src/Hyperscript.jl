@@ -1,3 +1,36 @@
+#=
+    High-level Overview
+
+    Hyperscript is a package for representing and rendering HTML and SVG DOM trees.
+
+    The primary abstraction is a `Node` — with a tag, attributes, and children.
+
+    Each `Node` also has a `Context` associated with it which defines the way in which
+    the fundamental Hyperscript functions operate on that node.
+
+    The basic pipeline is as follows:
+
+    A `Node` is created with some tag, attributes, and children.
+
+    The tag, attributes, and children are normalized and then validated, with fundamental
+    functions [normalize|validate][tag|attr|child].
+
+    Normalization is the conversion to a canonical form (e.g. kebab- or camel-casing) and
+    validation is checking invariants and throwing an error if they are not met (e.g. no
+    spaces in attribute names).
+
+    Each of these functions takes a `ctx` argument, allowing the context of a node to fully
+    dictate the terms of normalization, validation, escapining, and rendering.
+
+    Nodes handle escaping of their contents upon render using functions named
+    escape[tag|attrname|attrvalue|child].
+
+    The full pipeline over the lifecycle of a `Node` involves all of these functions
+    in order: normalize => validate => escape upon render.
+
+
+=#
+
 __precompile__()
 module Hyperscript
 
@@ -196,7 +229,8 @@ function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair{Symbol, <:Any
 end
 
 function normalizeattr(ctx::Context{DOM}, tag, attr::Pair{<:AbstractString, <:Any})
-    # Note: This must implementation must change if we begin to normalize values
+    # Note: This must implementation must change if we begin to normalize attr values above.
+    # Right now we only normalize attr names.
     attr
 end
 
