@@ -6,14 +6,15 @@
     The primary abstraction is a `Node` — with a tag, attributes, and children.
 
     Each `Node` also has a `Context` associated with it which defines the way in which
-    the fundamental Hyperscript functions operate on that node.
+    the basic Hyperscript functions operate on that node.
 
     The basic pipeline is as follows:
 
     A `Node` is created with some tag, attributes, and children.
 
-    The tag, attributes, and children are normalized and then validated, with fundamental
-    functions [normalize|validate][tag|attr|child].
+    The tag, attributes, and children are normalized and then validated, using the
+    functions [normalize|validate][tag|attr|child] which can dispatch on context to
+    handle different node types according to their needs.
 
     Normalization is the conversion to a canonical form (e.g. kebab- or camel-casing) and
     validation is checking invariants and throwing an error if they are not met (e.g. no
