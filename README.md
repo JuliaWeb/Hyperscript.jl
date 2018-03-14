@@ -14,14 +14,14 @@ When using this library you automatically get:
 
 Hyperscript introduces the `m` function for creating markup nodes:
 
-```
+```julia
 m("div", class="entry",
     m("h1", "An Important Announcement"))
 ```
 
 Nodes can be used as a templates:
 
-```
+```julia
 const div = m("div")
 const h1 = m("h1")
 div(class="entry", h1("An Important Announcement"))
@@ -29,7 +29,7 @@ div(class="entry", h1("An Important Announcement"))
 
 Dot syntax is supported for setting class attributes:
 
-```
+```julia
 const div = m("div")
 const h1 = m("h1")
 div.entry(h1("An Important Announcement"))
@@ -37,13 +37,13 @@ div.entry(h1("An Important Announcement"))
 
 Chained dot calls turn into multiple classes:
 
-```
+```julia
 m("div").header.entry
 ```
 
 The convenience macro `@tags` can be used to quickly declare common tags:
 
-```
+```julia
 @tags div h1
 const entry = div.entry
 entry(h1("An Important Announcement"))
@@ -51,7 +51,7 @@ entry(h1("An Important Announcement"))
 
 Arrays, tuples, and generators are recursively flattened, linearizing nested structures for display:
 
-```
+```julia
 @tags div h1
 const entry = div.entry
 div(entry.(["$n Fast $n Furious" for n in 1:10])) # joke © Glen Chiacchieri
@@ -59,28 +59,28 @@ div(entry.(["$n Fast $n Furious" for n in 1:10])) # joke © Glen Chiacchieri
 
 Attribute names with hyphens can be written using camelCase:
 
-```
+```julia
 m("meta", httpEquiv="refresh")
 # turns into <meta http-equiv="refresh" />
 ```
 
 For attributes that are _meant_ to be camelCase, Hyperscript still does the right thing:
 
-```
+```julia
 m("svg", viewBox="0 0 100 100")
 # turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
 Hyperscript automatically HTML-escapes children of DOM nodes:
 
-```
+```julia
 m("p", "I am a paragraph with a < inside it")
 # turns into <p>I am a paragraph with a &#60; inside it</p>
 ```
 
 You can disable escaping using `@tags_noescape` for writing an inline style or script:
 
-```
+```julia
 @tags_noescape script
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 ```
@@ -89,14 +89,14 @@ script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 
 In addition to HTML and SVG, Hyperscript also supports CSS:
 
-```
+```julia
 css(".entry", fontSize="14px")
 # turns into .entry { font-size: 14px; }
 ```
 
 CSS nodes can be nested inside each other:
 
-```
+```julia
 css(".entry",
     fontSize="14px",
     css("h1", textDecoration="underline"),
@@ -109,7 +109,7 @@ css(".entry",
 
 `@media` queries are also supported:
 
-```
+```julia
 css("@media (min-width: 1024px)",
     css("p", color="red"))
 # turns into
@@ -122,7 +122,7 @@ css("@media (min-width: 1024px)",
 
 Hyperscript supports scoped styles. They are implemented by adding unique attributes to nodes and selecting them via [attribute selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Attribute_selectors):
 
-```
+```julia
 @tags p
 @tags_noescape style
 
@@ -145,7 +145,7 @@ style(styles(s1))
 
 Scoped styles are scoped to the DOM subtree where they are applied. Styled nodes function as cascade barriers — parent styles do not leak into styled child nodes:
 
-```
+```julia
 # Create a second scoped style
 s2 = Style(css("p", color="blue"))
 
@@ -171,7 +171,7 @@ style(styles(s1), styles(s2))
 
 Hyperscript supports a concise syntax for CSS unit arithmetic:
 
-```
+```julia
 using Hyperscript
 import Hyperscript: px, em
 
