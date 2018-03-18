@@ -37,25 +37,24 @@ module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style, styles
 
-include(joinpath(@__DIR__, "units.jl"))
+include(joinpath(@__DIR__, "cssunits.jl"))
 
 ## Basic definitions
 
-@enum NodeKind CSS DOM
+abstract type Context end
 
-struct Context{kind, noescape}
+struct CSS <: Context
     allow_nan_attr_values::Bool
 end
-kind(::Context{T}) where {T} = T
+
+struct DOM <: Context
+    allow_nan_attr_values::Bool
+    noescape::Bool
+end
 
 # Return the normalized property value
 normalizetag(ctx, tag) = tag
 normalizeattr(ctx, tag, attr) = attr
-# Normalize non-string keys to string keys
-function normalizeattr(ctx, tag, (name, value)::Pair)
-    normalizeattr(ctx, tag, string(name) => value)
-end
-
 normalizechild(ctx, tag, child) = child
 
 # Return the property value or throw a validation error
@@ -65,20 +64,14 @@ validatechild(ctx, tag, child) = child
 
 abstract type AbstractNode{T} end
 
-struct Node{T} <: AbstractNode{T}
-    context::Context{T}
+struct Node{T<:Context} <: AbstractNode{T}
+    context::T
     tag::String
     children::Vector{Any}
     attrs::Dict{String, Any}
 end
 
-function Base.:(==)(x::Node{T}, y::Node{T}) where T
-    context(x) == context(y) && tag(x) == tag(y) && children(x) == children(y) && attrs(x) == attrs(y)
-end
-Base.:(==)(x::Node, y::Node) = false
-
-
-function Node(ctx::Context{T}, tag::AbstractString, children, attrs) where T
+function Node(ctx::T, tag::AbstractString, children, attrs) where T <: Context
     tag = validatetag(ctx, normalizetag(ctx, tag))
     Node{T}(
         ctx,
@@ -98,10 +91,15 @@ function (node::Node{T})(cs...; as...) where T
     )
 end
 
-tag(x::Node) = Base.getfield(x, :tag)
-attrs(x::Node) = Base.getfield(x, :attrs)
+tag(x::Node)      = Base.getfield(x, :tag)
+attrs(x::Node)    = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
-context(x::Node) = Base.getfield(x, :context)
+context(x::Node)  = Base.getfield(x, :context)
+
+function Base.:(==)(x::Node, y::Node)
+    context(x)  == context(y)  && tag(x)   == tag(y) &&
+    children(x) == children(y) && attrs(x) == attrs(y)
+end
 
 ## Node utils
 
@@ -111,7 +109,7 @@ function processchildren(ctx, tag, children)
 end
 
 # A single attribute is allowed to normalize to multiple attributes,
-# for example when normalizing CSS attribute names.
+# for example when normalizing CSS attribute names into vendor-prefixed versions.
 # TODO: Can remove the isempty check if Iterators.flatten([]) ever returns []
 processattrs(ctx, tag, attrs) = if isempty(attrs)
     Dict{String, Any}()
@@ -124,7 +122,7 @@ else
 end
 
 function flat(xs::Union{Base.Generator, Tuple, Array})
-    out = [] # for type-stability for node children and attribute values
+    out = Any[] # Vector{Any} for node children and attribute values
     for x in xs
         append!(out, flat(x))
     end
@@ -149,11 +147,11 @@ end
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
 
 # pass numbers through untrammelled
-kebab(camel::String) = join(islower(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+kebab(camel::String) = join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 
 ## DOM
 
-function render(io::IO, ctx::Context{DOM}, node::Node{DOM})
+function render(io::IO, ctx::DOM, node::Node{DOM})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
@@ -192,7 +190,7 @@ const VOID_TAGS = Set([
 isvoid(tag) = tag ∈ VOID_TAGS
 
 # Rendering DOM child nodes in their own context
-renderdomchild(io, ctx::Context{DOM}, node::AbstractNode{DOM}) = render(io, node)
+renderdomchild(io, ctx::DOM, node::AbstractNode{DOM}) = render(io, node)
 
 # Render and escape other DOM children, including CSS nodes, in the parent context.
 renderdomchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
@@ -218,33 +216,33 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
     "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
     "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
 
-normalizetag(ctx::Context{DOM}, tag) = strip(tag)
+normalizetag(ctx::DOM, tag) = strip(tag)
 
 # The simplest normalization — kebab-case and don't pay attention to the tag.
 # Allows both squishcase and camelCase for the attributes above.
 # If the attribute name is a string and not a Symbol (using the Node constructor),
 # then no normalization is performed — this way you can pass any attribute you'd like.
-function normalizeattr(ctx::Context{DOM}, tag, (name, value)::Pair{Symbol, <:Any})
+function normalizeattr(ctx::DOM, tag, (name, value)::Pair{Symbol, <:Any})
     name = string(name)
     get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
 end
 
-function normalizeattr(ctx::Context{DOM}, tag, attr::Pair{<:AbstractString, <:Any})
+function normalizeattr(ctx::DOM, tag, attr::Pair{<:AbstractString, <:Any})
     # Note: This must implementation must change if we begin to normalize attr values above.
     # Right now we only normalize attr names.
     attr
 end
 
 # Nice printing in errors
-stringify(ctx::Context{DOM}, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
-stringify(ctx::Context{DOM}, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
+stringify(ctx::DOM, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
+stringify(ctx::DOM, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
 
-function validatetag(ctx::Context{CSS}, tag)
+function validatetag(ctx::CSS, tag)
     isempty(tag) && error("Tag cannot be empty.")
     tag
 end
 
-function validateattr(ctx::Context{DOM}, tag, attr)
+function validateattr(ctx::DOM, tag, attr)
     (name, value) = attr
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
         error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
@@ -255,7 +253,7 @@ function validateattr(ctx::Context{DOM}, tag, attr)
     attr
 end
 
-function validatechild(ctx::Context{DOM}, tag, child)
+function validatechild(ctx::DOM, tag, child)
     if isvoid(tag)
         error("Void tags are not allowed to have children: $(stringify(ctx, tag))")
     end
@@ -274,19 +272,18 @@ const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
 # Used for CSS nodes, as well as children of tag nodes defined with @tags_noescape
 const NO_ESCAPES = Dict{Char, String}()
 
-escapetag(ctx::Context{DOM}) = HTML_ESCAPES
-escapeattrname(ctx::Context{DOM}) = HTML_ESCAPES
-escapeattrvalue(ctx::Context{DOM}) = ATTR_VALUE_ESCAPES
-escapechild(ctx::Context{DOM}) = HTML_ESCAPES
-escapechild(ctx::Context{DOM, true}) = NO_ESCAPES
+escapetag(ctx::DOM) = HTML_ESCAPES
+escapeattrname(ctx::DOM) = HTML_ESCAPES
+escapeattrvalue(ctx::DOM) = ATTR_VALUE_ESCAPES
+escapechild(ctx::DOM) = ctx.noescape ? NO_ESCAPES : HTML_ESCAPES
 
 # Concise CSS class shorthand
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
 Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(String(class))))
 Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
 
-const DEFAULT_DOM_CONTEXT = Context{DOM, false}(false)
-const NOESCAPE_DOM_CONTEXT = Context{DOM, true}(false)
+const DEFAULT_DOM_CONTEXT = DOM(false, false)
+const NOESCAPE_DOM_CONTEXT = DOM(false, true)
 m(tag::AbstractString, cs...; as...) = Node(DEFAULT_DOM_CONTEXT, tag, cs, as)
 m(ctx::Context, tag::AbstractString, cs...; as...) = Node(ctx, tag, cs, as)
 
@@ -317,7 +314,7 @@ end
 
 ismedia(node::Node{CSS}) = startswith(tag(node), "@media")
 
-function render(io::IO, ctx::Context{CSS}, node::Node)
+function render(io::IO, ctx::CSS, node::Node)
     @assert ctx == context(node)
 
     etag = escapetag(ctx)
@@ -345,20 +342,20 @@ function render(io::IO, ctx::Context{CSS}, node::Node)
     !nestchildren && for child in children(node)
         @assert typeof(child) <: Node "CSS child elements must be `Node`s."
         childctx = context(child)
-        render(io, Node{kind(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
+        render(io, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
     end
 end
 
-normalizetag(ctx::Context{CSS}, tag) = strip(tag)
+normalizetag(ctx::CSS, tag) = strip(tag)
 
-stringify(ctx::Context{CSS}, tag, (name, value)::Pair) = "$tag { $name: $value; }"
+stringify(ctx::CSS, tag, (name, value)::Pair) = "$tag { $name: $value; }"
 
-function validatetag(ctx::Context{DOM}, tag)
+function validatetag(ctx::DOM, tag)
     isempty(tag) && error("Tag cannot be empty.")
     tag
 end
 
-function validateattr(ctx::Context{CSS}, tag, attr)
+function validateattr(ctx::CSS, tag, attr)
     name, value = attr
     last(attr) == nothing && error("CSS attribute value may not be `nothing`: $(stringify(ctx, tag, attr))")
     last(attr) == "" && error("CSS attribute value may not be the empty string: $(stringify(ctx, tag, attr))")
@@ -368,17 +365,17 @@ function validateattr(ctx::Context{CSS}, tag, attr)
     attr
 end
 
-function validatechild(ctx::Context{CSS}, tag, child)
+function validatechild(ctx::CSS, tag, child)
     typeof(child) <: Node{CSS} || error("CSS nodes may only have Node{CSS} children. Found $(typeof(child)): $child")
     child
 end
-normalizeattr(ctx::Context{CSS}, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
+normalizeattr(ctx::CSS, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
 
-escapetag(ctx::Context{CSS}) = NO_ESCAPES
-escapeattrname(ctx::Context{CSS}) = NO_ESCAPES
-escapeattrvalue(ctx::Context{CSS}) = NO_ESCAPES
+escapetag(ctx::CSS) = NO_ESCAPES
+escapeattrname(ctx::CSS) = NO_ESCAPES
+escapeattrvalue(ctx::CSS) = NO_ESCAPES
 
-const DEFAULT_CSS_CONTEXT = Context{CSS, false}(false)
+const DEFAULT_CSS_CONTEXT = CSS(false)
 css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs)
 
 ## Scoped CSS
@@ -437,7 +434,6 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 #=
 future enhancements
     - when applying a Style to a node only add the `v-style` marker to those nodes that may be affected by a style selector.
-    - improve the context system to allow Kind-specific contextual settings (e.g. CSS-specific validation settings).
     - add linting validations for e.g. <circle x=... />
     - autoprefix css attributes based on some criterion, perhaps from caniuse.com
 
