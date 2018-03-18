@@ -326,6 +326,7 @@ end
 ## CSS
 
 ismedia(node::Node{CSS}) = startswith(tag(node), "@media")
+nestchildren(node::Node{CSS}) = startswith(tag(node), "@")
 
 function render(io::IO, ctx::CSS, node::Node)
     @assert ctx == context(node)
@@ -344,16 +345,18 @@ function render(io::IO, ctx::CSS, node::Node)
         print(io, ";") # \n
     end
 
-    nestchildren = ismedia(node)
-    nestchildren && for child in children(node)
-        @assert typeof(child) <: Node{CSS}
+    for child in children(node)
+        @assert typeof(child) <: Node{CSS}  "CSS child elements must be `Node`s."
+    end
+
+    nest = nestchildren(node)
+    nest && for child in children(node)
         render(io, child)
     end
 
     print(io, "}") # \n
 
-    !nestchildren && for child in children(node)
-        @assert typeof(child) <: Node "CSS child elements must be `Node`s."
+    !nest && for child in children(node)
         childctx = context(child)
         render(io, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
     end
