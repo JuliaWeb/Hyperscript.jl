@@ -112,7 +112,6 @@ function Base.:(==)(x::Node, y::Node)
     children(x) == children(y) && attrs(x) == attrs(y)
 end
 
-
 ## Node utils
 
 function processchildren(ctx, tag, children)
