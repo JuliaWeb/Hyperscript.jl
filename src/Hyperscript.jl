@@ -28,6 +28,29 @@
 
     The full pipeline over the lifecycle of a `Node` involves all of these functions
     in order: normalize => validate => escape upon render.
+
+    ===
+
+    Node extensibility points
+
+    Note that these defaults are not defined — it makes more sense to fully define the relevant
+    behaviors independently for each context. The values below are just 'no-op' examples.
+
+    # Return the normalized property value
+    normalizetag(ctx, tag) = tag
+    normalizeattr(ctx, tag, attr) = attr
+    normalizechild(ctx, tag, child) = child
+
+    # Return the property value or throw a validation error
+    validatetag(ctx, tag) = tag
+    validateattr(ctx, tag, attr) = attr
+    validatechild(ctx, tag, child) = child
+
+    # Return a Dict{Char, String} specifying escape replacements
+    escapetag(ctx) = NO_ESCAPES
+    escapeattrname(ctx) = NO_ESCAPES
+    escapeattrvalue(ctx) = NO_ESCAPES
+    escapechild(ctx) = NO_ESCAPES
 =#
 
 __precompile__()
@@ -49,16 +72,6 @@ struct DOM <: Context
     allow_nan_attr_values::Bool
     noescape::Bool
 end
-
-# Return the normalized property value
-normalizetag(ctx, tag) = tag
-normalizeattr(ctx, tag, attr) = attr
-normalizechild(ctx, tag, child) = child
-
-# Return the property value or throw a validation error
-validatetag(ctx, tag) = tag
-validateattr(ctx, tag, attr) = attr
-validatechild(ctx, tag, child) = child
 
 abstract type AbstractNode{T} end
 
@@ -98,6 +111,7 @@ function Base.:(==)(x::Node, y::Node)
     context(x)  == context(y)  && tag(x)   == tag(y) &&
     children(x) == children(y) && attrs(x) == attrs(y)
 end
+
 
 ## Node utils
 
@@ -230,6 +244,8 @@ function normalizeattr(ctx::DOM, tag, attr::Pair{<:AbstractString, <:Any})
     # Right now we only normalize attr names.
     attr
 end
+
+normalizechild(ctx::DOM, tag, child) = child
 
 # Nice printing in errors
 stringify(ctx::DOM, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
@@ -367,7 +383,9 @@ function validatechild(ctx::CSS, tag, child)
     typeof(child) <: Node{CSS} || error("CSS nodes may only have Node{CSS} children. Found $(typeof(child)): $child")
     child
 end
+
 normalizeattr(ctx::CSS, tag, attr::Pair) = kebab(string(first(attr))) => last(attr)
+normalizechild(ctx::CSS, tag, child) = child
 
 escapetag(ctx::CSS) = NO_ESCAPES
 escapeattrname(ctx::CSS) = NO_ESCAPES
