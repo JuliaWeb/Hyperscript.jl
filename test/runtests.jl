@@ -9,7 +9,7 @@ end
 
 macro renders(x, s)
     quote
-        Hyperscript.render($x) == $s
+        @test Hyperscript.render($x) == $s
     end
 end
 
@@ -45,7 +45,7 @@ end
 # Render tags with various non-string attribute values
 @renders m("p", name='7') s`<p name="7"></p>`
 @renders m("p", name=7) s`<p name="7"></p>`
-@renders m("p", name=7.0) s`<p name="7"></p>`
+@renders m("p", name=7.0) s`<p name="7.0"></p>`
 # squishcase renders as squishcase
 @renders m("p"; squishname=7.0) s`<p squishname="7.0"></p>`
 # camelCase renders as kebab-case
@@ -76,7 +76,7 @@ end
 # Can render other non-String children
 @renders m("p", 1) s`<p>1</p>`
 @renders m("p", 1.0) s`<p>1.0</p>`
-@renders m("p", '1') s`<p>&#39;1&#39;</p>`
+@renders m("p", '1') s`<p>1</p>`
 # Can render nodes with mixed-type children
 @renders m("p", m("span", "child", 1), 2) s`<p><span>child1</span>2</p>`
 # Can render mixed-type children inside an array
