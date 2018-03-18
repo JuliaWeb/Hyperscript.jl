@@ -28,8 +28,6 @@
 
     The full pipeline over the lifecycle of a `Node` involves all of these functions
     in order: normalize => validate => escape upon render.
-
-
 =#
 
 __precompile__()
@@ -382,8 +380,8 @@ css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs
 
 # A `Styled` node results from the application of a `Style` to a `Node`.
 # It serves as a cascade barrier — parent styles do not bleed into nested styled nodes.
-struct Styled{T} <: AbstractNode{T}
-    node::Node{T}
+struct Styled <: AbstractNode{DOM}
+    node::Node{DOM}
     style
 end
 
@@ -436,7 +434,6 @@ future enhancements
     - when applying a Style to a node only add the `v-style` marker to those nodes that may be affected by a style selector.
     - add linting validations for e.g. <circle x=... />
     - autoprefix css attributes based on some criterion, perhaps from caniuse.com
-
 =#
 
 end # module
