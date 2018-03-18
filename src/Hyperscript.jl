@@ -153,6 +153,8 @@ printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
 end
 
+printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), escapes)
+
 # todo: turn the above into something like an escaping IO pipe to avoid string
 # allocation via sprint. future use: sprint(printescaped, x, escapes))
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
@@ -354,7 +356,7 @@ function render(io::IO, ctx::CSS, node::Node)
         render(io, child)
     end
 
-    print(io, "} ") # \n
+    print(io, "}") # \n
 
     !nest && for child in children(node)
         childctx = context(child)
