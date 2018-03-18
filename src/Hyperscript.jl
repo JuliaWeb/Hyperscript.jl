@@ -354,7 +354,7 @@ function render(io::IO, ctx::CSS, node::Node)
         render(io, child)
     end
 
-    print(io, "}") # \n
+    print(io, "} ") # \n
 
     !nest && for child in children(node)
         childctx = context(child)
