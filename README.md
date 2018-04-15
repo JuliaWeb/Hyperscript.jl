@@ -71,6 +71,12 @@ m("svg", viewBox="0 0 100 100")
 # turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
+If an attribute name is a Julia keyword, you can use the Symbol/Pair syntax:
+
+```julia
+m("link"; rel="stylesheet", :type=>"text/css", href="style.css")
+```
+
 Hyperscript automatically HTML-escapes children of DOM nodes:
 
 ```julia
