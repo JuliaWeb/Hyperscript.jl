@@ -71,11 +71,11 @@ m("svg", viewBox="0 0 100 100")
 # turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
-Attribute names that are Julia keywords can be specified using `:attr => value` syntax:
+Attribute names that are also Julia keywords can be specified using `:attr => value` syntax:
 
 ```julia
-m("link"; rel="stylesheet", :type=>"text/css", href="style.css")
-# turns into <link rel="stylesheet" type="text/css" href="style.css" />
+m("input"; :type=>"text")
+# turns into <input type="text" />
 ```
 
 Hyperscript automatically HTML-escapes children of DOM nodes:
