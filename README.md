@@ -71,6 +71,13 @@ m("svg", viewBox="0 0 100 100")
 # turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
+Attribute names that are also Julia keywords can be specified using `:attr => value` syntax:
+
+```julia
+m("input"; :type=>"text")
+# turns into <input type="text" />
+```
+
 Hyperscript automatically HTML-escapes children of DOM nodes:
 
 ```julia
