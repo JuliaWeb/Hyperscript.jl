@@ -71,10 +71,12 @@ m("svg", viewBox="0 0 100 100")
 # turns into <svg viewBox="0 0 100 100"><svg>
 ```
 
-If an attribute name is a Julia keyword, you can use the Symbol/Pair syntax:
+If an attribute name is a Julia keyword, you can use `:attr => value` keyword argument syntax:
 
 ```julia
 m("link"; rel="stylesheet", :type=>"text/css", href="style.css")
+# turns into <link rel="stylesheet" type="text/css" href="style.css" />
+# note: type is a keyword only in Julia versions before 1.0.
 ```
 
 Hyperscript automatically HTML-escapes children of DOM nodes:
