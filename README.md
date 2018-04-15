@@ -74,7 +74,7 @@ m("svg", viewBox="0 0 100 100")
 Attribute names that happen to be Julia keywords can be specified with `:attr => value` syntax:
 
 ```julia
-m("input"; :type=>"text")
+m("input"; :type => "text")
 # turns into <input type="text" />
 ```
 
