@@ -157,7 +157,7 @@ printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), esc
 
 # todo: turn the above into something like an escaping IO pipe to avoid string
 # allocation via sprint. future use: sprint(printescaped, x, escapes))
-printescaped(io::IO, x, escapes) = printescaped(io, sprint(show, x), escapes)
+printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 
 # pass numbers through untrammelled
 kebab(camel::String) = join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
