@@ -97,14 +97,18 @@ Nodes can be printed compactly with `print` or `show`, or pretty-printed to a st
 ```julia
 node = m("div", class="entry", m("h1", "An Important Announcement"))
 
+# prints to stdout
 print(node)
 # <div class="entry"><h1>An Important Announcement</h1></div>
 
+# returns a string
 render(node, pretty=true)
 # <div class="entry">
 #  <h1>An Important Announcement</h1>
 # </div>
 ```
+
+Note that the extra white space can affect layout, particularly in conjunction with CSS properties like [white-space](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space).
 
 ## CSS
 
