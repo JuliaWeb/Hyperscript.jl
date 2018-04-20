@@ -144,7 +144,7 @@ flat(x) = (x,)
 ## Rendering
 
 struct RenderContext
-    prettyprint::Bool
+    pretty::Bool
     indent::String
     level::Int
 end
@@ -156,18 +156,18 @@ render(io::IO, rctx::RenderContext, node::Node) = render(io, rctx, context(node)
 # render(rctx::RenderContext, node::Node) = render(Base.stdin, rctx, context(node), node)
 
 """
-    render(node; prettyprint=true, indent="  ")
-    render(io, node; prettyprint=true, indent="  ")
+    render(node; pretty=true, indent="  ")
+    render(io, node; pretty=true, indent="  ")
 
 Render `node`, optionally writing to `io`.
-With `prettyprint` set to true, line feeds are added along with indentation controlled by `indent`.
+With `pretty` set to true, line feeds are added along with indentation controlled by `indent`.
 """
-render(node::Node; prettyprint=false, indent="  ") = sprint(node) do io, node
-    render(io, RenderContext(prettyprint, indent, 0), context(node), node)
+render(node::Node; pretty=false, indent="  ") = sprint(node) do io, node
+    render(io, RenderContext(pretty, indent, 0), context(node), node)
 end
-    
-render(io::IO, node::Node; prettyprint=false, indent="  ") = 
-    render(io, RenderContext(prettyprint, indent, 0), context(node), node)
+
+render(io::IO, node::Node; pretty=false, indent="  ") =
+    render(io, RenderContext(pretty, indent, 0), context(node), node)
 
 Base.show(io::IO, node::Node) = render(io, rctx_default, node)
 
@@ -191,7 +191,7 @@ function render(io::IO, rctx::RenderContext, ctx::DOM, node::Node{DOM})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
-    if rctx.prettyprint && rctx.level > 0
+    if rctx.pretty && rctx.level > 0
         print(io, "\n", rctx.indent ^ rctx.level, "<")
     else
         print(io, "<")
@@ -213,9 +213,9 @@ function render(io::IO, rctx::RenderContext, ctx::DOM, node::Node{DOM})
     else
         print(io, ">")
         for child in children(node)
-            renderdomchild(io, RenderContext(rctx.prettyprint, rctx.indent, rctx.level + 1), ctx, child)
+            renderdomchild(io, RenderContext(rctx.pretty, rctx.indent, rctx.level + 1), ctx, child)
         end
-        if rctx.prettyprint && any(x -> isa(x, AbstractNode), children(node))
+        if rctx.pretty && any(x -> isa(x, AbstractNode), children(node))
             print(io, "\n", rctx.indent ^ rctx.level, "</")
         else
             print(io, "</")
@@ -367,7 +367,7 @@ function render(io::IO, rctx::RenderContext, ctx::CSS, node::Node)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
 
-    if rctx.prettyprint
+    if rctx.pretty
         print(io, "\n", rctx.indent ^ rctx.level)
     end
     printescaped(io, tag(node), etag)
@@ -449,7 +449,7 @@ children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node((augmentdom(x.style.id, c) for c in  cs)...; as...), x.style)
 render(io::IO, rctx::RenderContext, x::Styled) = render(io, rctx, x.node)
-render(x::Styled; prettyprint = false, indent = "  ") = render(x.node, prettyprint = prettyprint, indent = indent)
+render(x::Styled; pretty = false, indent = "  ") = render(x.node, pretty = pretty, indent = indent)
 Base.show(io::IO, x::Styled) = render(io, rctx_default, x.node)
 
 struct Style
