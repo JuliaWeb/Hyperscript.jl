@@ -191,7 +191,7 @@ function render(io::IO, rctx::RenderContext, ctx::DOM, node::Node{DOM})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
-    if rctx.prettyprint
+    if rctx.prettyprint && rctx.level > 0
         print(io, "\n", rctx.indent ^ rctx.level, "<")
     else
         print(io, "<")
