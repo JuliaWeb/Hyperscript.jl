@@ -92,7 +92,7 @@ You can disable escaping using `@tags_noescape` for writing an inline style or s
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 ```
 
-Nodes can be pretty-printed to a string with `render`:
+Nodes can be printed compactly with `print` or `show`, or pretty-printed to a string with `render`:
 
 ```julia
 render(
