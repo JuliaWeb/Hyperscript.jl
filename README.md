@@ -57,6 +57,18 @@ const entry = div.entry
 div(entry.(["$n Fast $n Furious" for n in 1:10])) # joke © Glen Chiacchieri
 ```
 
+Nodes can be pretty-printed to a string with `render`:
+
+```julia
+render(
+    m("div", class="entry", m("h1", "An Important Announcement")),
+    pretty=true
+)
+# <div class="entry">
+#  <h1>An Important Announcement</h1>
+# </div>
+```
+
 Attribute names with hyphens can be written using camelCase:
 
 ```julia
