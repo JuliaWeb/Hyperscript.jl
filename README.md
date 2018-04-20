@@ -95,10 +95,11 @@ script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 Nodes can be printed compactly with `print` or `show`, or pretty-printed to a string with `render`:
 
 ```julia
-render(
-    m("div", class="entry", m("h1", "An Important Announcement")),
-    pretty=true
-)
+node = m("div", class="entry", m("h1", "An Important Announcement"))
+print(node)
+# <div class="entry"><h1>An Important Announcement</h1></div>
+
+render(node, pretty=true)
 # <div class="entry">
 #  <h1>An Important Announcement</h1>
 # </div>
