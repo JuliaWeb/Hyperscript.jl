@@ -156,17 +156,17 @@ render(io::IO, rctx::RenderContext, node::Node) = render(io, rctx, context(node)
 # render(rctx::RenderContext, node::Node) = render(Base.stdin, rctx, context(node), node)
 
 """
-    render(node; prettyprint = true, indent = "  ")
-    render(io, node; prettyprint = true, indent = "  ")
+    render(node; prettyprint=true, indent="  ")
+    render(io, node; prettyprint=true, indent="  ")
 
 Render `node`, optionally writing to `io`.
 With `prettyprint` set to true, line feeds are added along with indentation controlled by `indent`.
 """
-render(node::Node; prettyprint = false, indent = "  ") = sprint(node) do io, node
+render(node::Node; prettyprint=false, indent="  ") = sprint(node) do io, node
     render(io, RenderContext(prettyprint, indent, 0), context(node), node)
 end
     
-render(io::IO, node::Node; prettyprint = false, indent = "  ") = 
+render(io::IO, node::Node; prettyprint=false, indent="  ") = 
     render(io, RenderContext(prettyprint, indent, 0), context(node), node)
 
 Base.show(io::IO, node::Node) = render(io, rctx_default, node)
