@@ -100,9 +100,6 @@ node = m("div", class="entry", m("h1", "An Important Announcement"))
 print(node)
 # <div class="entry"><h1>An Important Announcement</h1></div>
 
-show(node)
-# <div class="entry"><h1>An Important Announcement</h1></div>
-
 render(node, pretty=true)
 # <div class="entry">
 #  <h1>An Important Announcement</h1>
