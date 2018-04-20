@@ -57,18 +57,6 @@ const entry = div.entry
 div(entry.(["$n Fast $n Furious" for n in 1:10])) # joke © Glen Chiacchieri
 ```
 
-Nodes can be pretty-printed to a string with `render`:
-
-```julia
-render(
-    m("div", class="entry", m("h1", "An Important Announcement")),
-    pretty=true
-)
-# <div class="entry">
-#  <h1>An Important Announcement</h1>
-# </div>
-```
-
 Attribute names with hyphens can be written using camelCase:
 
 ```julia
@@ -97,11 +85,23 @@ m("p", "I am a paragraph with a < inside it")
 # turns into <p>I am a paragraph with a &#60; inside it</p>
 ```
 
-You can disable escaping using `@tags_noescape` for writing an inline style or script:
+You can disable escaping using `@tags_noescape` for writing an inline `<style>` or `<script>`:
 
 ```julia
 @tags_noescape script
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
+```
+
+Nodes can be pretty-printed to a string with `render`:
+
+```julia
+render(
+    m("div", class="entry", m("h1", "An Important Announcement")),
+    pretty=true
+)
+# <div class="entry">
+#  <h1>An Important Announcement</h1>
+# </div>
 ```
 
 ## CSS
