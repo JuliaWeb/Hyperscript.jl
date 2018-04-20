@@ -56,7 +56,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style, styles
+export @tags, @tags_noescape, m, css, Style, styles, render
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
@@ -143,11 +143,33 @@ flat(x) = (x,)
 
 ## Rendering
 
-# Top-level nodes render in their own context.
-render(io::IO, node::Node) = render(io, context(node), node)
-render(node::Node) = sprint(render, node)
+struct RenderContext
+    prettyprint::Bool
+    indent::String
+    level::Int
+end
+const rctx_default = RenderContext(false, "  ", 0)
 
-Base.show(io::IO, node::Node) = render(io, node)
+
+# Top-level nodes render in their own context.
+render(io::IO, rctx::RenderContext, node::Node) = render(io, rctx, context(node), node)
+# render(rctx::RenderContext, node::Node) = render(Base.stdin, rctx, context(node), node)
+
+"""
+    render(node; prettyprint=true, indent="  ")
+    render(io, node; prettyprint=true, indent="  ")
+
+Render `node`, optionally writing to `io`.
+With `prettyprint` set to true, line feeds are added along with indentation controlled by `indent`.
+"""
+render(node::Node; prettyprint=false, indent="  ") = sprint(node) do io, node
+    render(io, RenderContext(prettyprint, indent, 0), context(node), node)
+end
+    
+render(io::IO, node::Node; prettyprint=false, indent="  ") = 
+    render(io, RenderContext(prettyprint, indent, 0), context(node), node)
+
+Base.show(io::IO, node::Node) = render(io, rctx_default, node)
 
 printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
@@ -162,14 +184,18 @@ printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 # pass numbers through untrammelled
 kebab(camel::String) = join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 
+
 ## DOM
 
-function render(io::IO, ctx::DOM, node::Node{DOM})
+function render(io::IO, rctx::RenderContext, ctx::DOM, node::Node{DOM})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
-
-    print(io, "<")
+    if rctx.prettyprint && rctx.level > 0
+        print(io, "\n", rctx.indent ^ rctx.level, "<")
+    else
+        print(io, "<")
+    end
     printescaped(io, tag(node), etag)
     for (name, value) in pairs(attrs(node))
         print(io, " ")
@@ -187,9 +213,13 @@ function render(io::IO, ctx::DOM, node::Node{DOM})
     else
         print(io, ">")
         for child in children(node)
-            renderdomchild(io, ctx, child)
+            renderdomchild(io, RenderContext(rctx.prettyprint, rctx.indent, rctx.level + 1), ctx, child)
         end
-        print(io, "</")
+        if rctx.prettyprint && any(x -> isa(x, AbstractNode), children(node))
+            print(io, "\n", rctx.indent ^ rctx.level, "</")
+        else
+            print(io, "</")
+        end
         printescaped(io, tag(node), etag)
         print(io, ">")
     end
@@ -203,10 +233,10 @@ const VOID_TAGS = Set([
 isvoid(tag) = tag ∈ VOID_TAGS
 
 # Rendering DOM child nodes in their own context
-renderdomchild(io, ctx::DOM, node::AbstractNode{DOM}) = render(io, node)
+renderdomchild(io, rctx::RenderContext, ctx::DOM, node::AbstractNode{DOM}) = render(io, rctx, node)
 
 # Render and escape other DOM children, including CSS nodes, in the parent context.
-renderdomchild(io, ctx, x) = printescaped(io, x, escapechild(ctx))
+renderdomchild(io, rctx::RenderContext, ctx, x) = printescaped(io, x, escapechild(ctx))
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
@@ -330,13 +360,16 @@ end
 ismedia(node::Node{CSS}) = startswith(tag(node), "@media")
 nestchildren(node::Node{CSS}) = startswith(tag(node), "@")
 
-function render(io::IO, ctx::CSS, node::Node)
+function render(io::IO, rctx::RenderContext, ctx::CSS, node::Node)
     @assert ctx == context(node)
 
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
 
+    if rctx.prettyprint
+        print(io, "\n", rctx.indent ^ rctx.level)
+    end
     printescaped(io, tag(node), etag)
     print(io, " {") # \n
 
@@ -353,16 +386,18 @@ function render(io::IO, ctx::CSS, node::Node)
 
     nest = nestchildren(node)
     nest && for child in children(node)
-        render(io, child)
+        render(io, rctx, child)
     end
 
     print(io, "}") # \n
 
     !nest && for child in children(node)
         childctx = context(child)
-        render(io, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
+        render(io, rctx, Node{typeof(childctx)}(childctx, tag(node) * " " * tag(child), children(child), attrs(child)))
     end
 end
+
+renderdomchild(io, rctx::RenderContext, ctx::Context, node::AbstractNode{CSS}) = render(io, rctx, node)
 
 normalizetag(ctx::CSS, tag) = strip(tag)
 
@@ -413,9 +448,9 @@ attrs(x::Styled) = attrs(x.node)
 children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node((augmentdom(x.style.id, c) for c in  cs)...; as...), x.style)
-render(io::IO, x::Styled) = render(io, x.node)
-render(x::Styled) = render(x.node)
-Base.show(io::IO, x::Styled) = render(io, x.node)
+render(io::IO, rctx::RenderContext, x::Styled) = render(io, rctx, x.node)
+render(x::Styled; prettyprint = false, indent = "  ") = render(x.node, prettyprint = prettyprint, indent = indent)
+Base.show(io::IO, x::Styled) = render(io, rctx_default, x.node)
 
 struct Style
     id::Int
@@ -437,8 +472,8 @@ end
 
 styles(x::Style) = x.styles
 
-render(io::IO, x::Style) = for node in x.styles
-    render(io, node)
+render(io::IO, rctx::RenderContext, x::Style) = for node in x.styles
+    render(io, rctx, node)
 end
 
 augmentdom(id, x) = x # Literals and other non-DOM objects
