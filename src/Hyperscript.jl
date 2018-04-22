@@ -56,7 +56,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style, styles, render
+export @tags, @tags_noescape, m, css, Style, styles, render, show_defaults
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
@@ -150,6 +150,20 @@ struct RenderContext
 end
 const rctx_default = RenderContext(false, "  ", 0)
 
+mutable struct RenderOptions
+    pretty::Bool
+    indent::String
+end
+const _show_defaults = RenderOptions(false, "  ")
+
+function show_defaults(pretty, indent)
+    _show_defaults.pretty = pretty
+    _show_defaults.indent = indent
+    nothing
+end
+show_defaults(; pretty = _show_defaults.pretty, indent = _show_defaults.indent) =
+    show_defaults(pretty, indent)
+
 
 # Top-level nodes render in their own context.
 render(io::IO, rctx::RenderContext, node::Node) = render(io, rctx, context(node), node)
@@ -169,7 +183,11 @@ end
 render(io::IO, node::Node; pretty=false, indent="  ") =
     render(io, RenderContext(pretty, indent, 0), context(node), node)
 
-Base.show(io::IO, node::Node) = render(io, rctx_default, node)
+Base.show(io::IO, node::Node) = 
+#    render(io, rctx_default, node)
+    render(io, node, pretty = _show_defaults.pretty, indent = _show_defaults.indent)
+Base.show(io::IO, m::MIME"text/html", node::Node) = 
+    render(io, node, pretty = _show_defaults.pretty, indent = _show_defaults.indent)
 
 printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
@@ -450,7 +468,10 @@ context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node((augmentdom(x.style.id, c) for c in  cs)...; as...), x.style)
 render(io::IO, rctx::RenderContext, x::Styled) = render(io, rctx, x.node)
 render(x::Styled; pretty = false, indent = "  ") = render(x.node, pretty = pretty, indent = indent)
-Base.show(io::IO, x::Styled) = render(io, rctx_default, x.node)
+Base.show(io::IO, x::Styled) = 
+    render(io, rctx_default, x.node, pretty = _show_defaults.pretty, indent = _show_defaults.indent)
+Base.show(io::IO, m::MIME"text/html", x::Styled) = 
+    render(io, x.node, pretty = _show_defaults.pretty, indent = _show_defaults.indent)
 
 struct Style
     id::Int

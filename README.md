@@ -110,6 +110,20 @@ render(node, pretty=true)
 
 Note that the extra white space can affect layout, particularly in conjunction with CSS properties like [white-space](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space).
 
+The options for `show` for pretty printing can be set with `show_defaults()`:
+
+```julia
+node = m("div", class="entry", m("h1", "An Important Announcement"))
+# <div class="entry"><h1>An Important Announcement</h1></div>
+
+show_defaults(pretty = true)
+
+node
+# <div class="entry">
+#   <h1>An Important Announcement</h1>
+# </div>
+```
+
 ## CSS
 
 In addition to HTML and SVG, Hyperscript also supports CSS:
