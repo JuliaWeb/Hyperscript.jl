@@ -170,6 +170,7 @@ render(io::IO, node::Node; pretty=false, indent="  ") =
     render(io, RenderContext(pretty, indent, 0), context(node), node)
 
 Base.show(io::IO, node::Node) = render(io, rctx_default, node)
+Base.show(io::IO, m::MIME"text/html", node::Node) = render(io, rctx_default, node)
 
 printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
@@ -451,6 +452,7 @@ context(x::Styled) = context(x.node)
 render(io::IO, rctx::RenderContext, x::Styled) = render(io, rctx, x.node)
 render(x::Styled; pretty = false, indent = "  ") = render(x.node, pretty = pretty, indent = indent)
 Base.show(io::IO, x::Styled) = render(io, rctx_default, x.node)
+Base.show(io::IO, m::MIME"text/html", x::Styled) = render(io, rctx_default, x.node)
 
 struct Style
     id::Int
