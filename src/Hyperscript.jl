@@ -235,6 +235,9 @@ isvoid(tag) = tag ∈ VOID_TAGS
 # Rendering DOM child nodes in their own context
 renderdomchild(io, rctx::RenderContext, ctx::DOM, node::AbstractNode{DOM}) = render(io, rctx, node)
 
+# Do nothing for `nothing`; this is similar to using `nothing` as an attribute value for valueless attributes.
+renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
+
 # Render and escape other DOM children, including CSS nodes, in the parent context.
 renderdomchild(io, rctx::RenderContext, ctx, x) = printescaped(io, x, escapechild(ctx))
 
