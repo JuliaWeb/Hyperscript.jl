@@ -56,7 +56,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style, styles, render
+export @tags, @tags_noescape, m, css, Style, styles, Pretty
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
@@ -148,29 +148,23 @@ struct RenderContext
     indent::String
     level::Int
 end
-const rctx_default = RenderContext(false, "  ", 0)
+const default_rctx = RenderContext(false, "  ", 0)
 
-
-# Top-level nodes render in their own context.
-render(io::IO, rctx::RenderContext, node::Node) = render(io, rctx, context(node), node)
-# render(rctx::RenderContext, node::Node) = render(Base.stdin, rctx, context(node), node)
-
-"""
-    render(node; pretty=true, indent="  ")
-    render(io, node; pretty=true, indent="  ")
-
-Render `node`, optionally writing to `io`.
-With `pretty` set to true, line feeds are added along with indentation controlled by `indent`.
-"""
-render(node::Node; pretty=false, indent="  ") = sprint(node) do io, node
-    render(io, RenderContext(pretty, indent, 0), context(node), node)
+struct Pretty{T <: AbstractNode}
+    node::T
+    rctx::RenderContext
+    Pretty(node::T; indent="  ") where {T} = new{T}(node, RenderContext(true, indent, 0))
+    Pretty(node::T, rctx::RenderContext) where {T} = new{T}(node, rctx)
 end
 
-render(io::IO, node::Node; pretty=false, indent="  ") =
-    render(io, RenderContext(pretty, indent, 0), context(node), node)
+# Top-level nodes render in their own node context.
+render(io::IO, rctx::RenderContext, x::Node) = render(io, rctx, context(x), x)
+render(io::IO, x::Pretty) = render(io, x.rctx, x.node)
+render(io::IO, x::Node) = render(io, default_rctx, x)
+render(x::AbstractNode) = sprint(render, x)
 
-Base.show(io::IO, node::Node) = render(io, rctx_default, node)
-Base.show(io::IO, m::MIME"text/html", node::Node) = render(io, rctx_default, node)
+Base.show(io::IO, node::Union{Node, Pretty}) = render(io, node)
+Base.show(io::IO, m::MIME"text/html", node::Union{Node, Pretty}) = render(io, node)
 
 printescaped(io::IO, x::AbstractString, escapes) = for c in x
     print(io, get(escapes, c, c))
@@ -449,10 +443,11 @@ attrs(x::Styled) = attrs(x.node)
 children(x::Styled) = children(x.node)
 context(x::Styled) = context(x.node)
 (x::Styled)(cs...; as...) = Styled(x.node((augmentdom(x.style.id, c) for c in  cs)...; as...), x.style)
+render(io::IO, x::Styled) = render(io, x.node)
 render(io::IO, rctx::RenderContext, x::Styled) = render(io, rctx, x.node)
-render(x::Styled; pretty = false, indent = "  ") = render(x.node, pretty = pretty, indent = indent)
-Base.show(io::IO, x::Styled) = render(io, rctx_default, x.node)
-Base.show(io::IO, m::MIME"text/html", x::Styled) = render(io, rctx_default, x.node)
+
+Base.show(io::IO, x::Styled) = show(io, x.node)
+Base.show(io::IO, m::MIME"text/html", x::Styled) = show(io, x.node)
 
 struct Style
     id::Int
