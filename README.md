@@ -92,17 +92,15 @@ You can disable escaping using `@tags_noescape` for writing an inline style or s
 script("console.log('<(0_0<) <(0_0)> (>0_0)> KIRBY DANCE')")
 ```
 
-Nodes can be printed compactly with `print` or `show`, or pretty-printed to a string with `render`:
+Nodes can be printed compactly with `print` or `show`, or pretty-printed using by wrapping a node in `Pretty`:
 
 ```julia
 node = m("div", class="entry", m("h1", "An Important Announcement"))
 
-# prints to stdout
 print(node)
 # <div class="entry"><h1>An Important Announcement</h1></div>
 
-# returns a string
-render(node, pretty=true)
+print(Pretty(node))
 # <div class="entry">
 #  <h1>An Important Announcement</h1>
 # </div>

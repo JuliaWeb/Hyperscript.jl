@@ -151,6 +151,11 @@ struct RenderContext
 end
 const default_rctx = RenderContext(false, "  ", 0)
 
+
+"""
+Wrapper struct for pretty-printing `Node`s: `Pretty(node)`.
+Line feeds are added along with indentation controlled by `indent`.
+"""
 struct Pretty{T <: AbstractNode}
     node::T
     rctx::RenderContext
