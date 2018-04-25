@@ -56,7 +56,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style, styles, render
+export @tags, @tags_noescape, m, css, Style, styles, render, wraphtml, savehtml
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
@@ -487,6 +487,20 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
     push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
 )
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x), s)
+
+
+## Useful utilities for generating HTML files
+
+function wraphtml(dom)
+    node = if dom isa Node && tag(dom) == "html"
+        dom
+    else
+        m("html", dom)
+    end
+    preamble = "<!doctype html>\n" # HTML 5
+    string(preamble, sprint(show, node))
+end
+savehtml(filename, children...) = write(filename, wraphtml(children))
 
 #=
 future enhancements
