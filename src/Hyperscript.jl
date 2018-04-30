@@ -57,7 +57,6 @@ __precompile__()
 module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, wraphtml, savehtml
-export @tags, @tags_noescape, m, css, Style, styles, Pretty
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
