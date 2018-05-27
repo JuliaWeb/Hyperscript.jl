@@ -491,10 +491,13 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 ## Useful utilities for generating HTML files
 
 # todo: can these two functions be merged?
+# todo: verify that this doesn't double-wrap...
+# I think I've seen it happen in the wild.
 function wraphtml(dom)
     node = if dom isa Node && tag(dom) == "html"
         dom
     else
+        # todo: head, body?
         m("html", dom)
     end
     preamble = "<!doctype html>\n" # HTML 5
