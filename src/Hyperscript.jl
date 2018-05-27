@@ -121,10 +121,7 @@ end
 
 # A single attribute is allowed to normalize to multiple attributes,
 # for example when normalizing CSS attribute names into vendor-prefixed versions.
-# TODO: Can remove the isempty check if Iterators.flatten([]) ever returns []
-processattrs(ctx, tag, attrs) = if isempty(attrs)
-    Dict{String, Any}()
-else
+function processattrs(ctx, tag, attrs)
     Dict{String, Any}(
         validateattr(ctx, tag, attr′)
         for attr in attrs
@@ -493,6 +490,7 @@ augmentdom(id, node::Node{T}) where {T} = Node{T}(
 
 ## Useful utilities for generating HTML files
 
+# todo: can these two functions be merged?
 function wraphtml(dom)
     node = if dom isa Node && tag(dom) == "html"
         dom
@@ -506,6 +504,7 @@ savehtml(filename, children...) = write(filename, wraphtml(children))
 
 #=
 future enhancements
+    - some way to import many common HTML/SVG tags at once
     - when applying a Style to a node only add the `v-style` marker to those nodes that may be affected by a style selector.
     - add linting validations for e.g. <circle x=... />
     - autoprefix css attributes based on some criterion, perhaps from caniuse.com
