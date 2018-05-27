@@ -145,7 +145,7 @@ struct RenderContext
     indent::String
     level::Int
 end
-const default_rctx = RenderContext(false, "  ", 0)
+const DEFAULT_RCTX = RenderContext(false, "  ", 0)
 
 """
 Wrapper struct for pretty-printing `Node`s: `Pretty(node)`.
@@ -161,7 +161,7 @@ end
 # Top-level nodes render in their own node context.
 render(io::IO, rctx::RenderContext, x::Node) = render(io, rctx, context(x), x)
 render(io::IO, x::Pretty) = render(io, x.rctx, x.node)
-render(io::IO, x::Node) = render(io, default_rctx, x)
+render(io::IO, x::Node) = render(io, DEFAULT_RCTX, x)
 render(x::AbstractNode) = sprint(render, x)
 
 Base.show(io::IO, node::Union{Node, Pretty}) = render(io, node)
