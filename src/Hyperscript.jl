@@ -56,7 +56,7 @@
 __precompile__()
 module Hyperscript
 
-export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, wraphtml, savehtml
+export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, savesvg
 
 include(joinpath(@__DIR__, "cssunits.jl"))
 
@@ -504,6 +504,19 @@ function wraphtml(dom)
     string(preamble, sprint(show, node))
 end
 savehtml(filename, children...) = write(filename, wraphtml(children))
+
+function wrapsvg(dom)
+    preamble = """
+    <?xml version="1.0" standalone="yes"?>
+    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+      "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    """ # SVG 1.1
+    node = tag(dom) == "svg" ? dom : m("svg", dom)
+    haskey(attrs(node), "xmlns")   || (node = node(xmlns="http://www.w3.org/2000/svg"))
+    haskey(attrs(node), "version") || (node = node(version="1.1"))
+    string(preamble, sprint(show, node))
+end
+savesvg(filename, children) = write(filename, wrapsvg(children))
 
 #=
 future enhancements
