@@ -524,6 +524,7 @@ future enhancements
     - when applying a Style to a node only add the `v-style` marker to those nodes that may be affected by a style selector.
     - add linting validations for e.g. <circle x=... />
     - autoprefix css attributes based on some criterion, perhaps from caniuse.com
+    process m(k => v) as m(; k=v)? this would break the "all normal arguments are children" invariant.
 =#
 
 end # module
