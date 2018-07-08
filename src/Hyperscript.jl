@@ -527,6 +527,7 @@ future enhancements
     - add linting validations for e.g. <circle x=... />
     - autoprefix css attributes based on some criterion, perhaps from caniuse.com
     process m(k => v) as m(; k=v)? this would break the "all normal arguments are children" invariant.
+    - rename save[x] to write[x]
 =#
 
 end # module
