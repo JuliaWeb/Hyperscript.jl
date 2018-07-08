@@ -1,0 +1,6 @@
+name = "Hyperscript"
+uuid = "61f73626-e61e-46c8-aded-7ef67e964bac""
+version = "0.0.3"
+author = ["Yuri Vishnevsky <yurivish@gmail.com>"]
+
+[deps]
