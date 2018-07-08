@@ -58,7 +58,9 @@ module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, savesvg
 
+# Units
 include(joinpath(@__DIR__, "cssunits.jl"))
+export px, em, rem, vh, vw, vmin, vmax, pc
 
 ## Basic definitions
 
