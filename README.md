@@ -196,7 +196,6 @@ Hyperscript supports a concise syntax for CSS unit arithmetic:
 
 ```julia
 using Hyperscript
-import Hyperscript: px, em
 
 css(".foo", width=50px)
 # turns into .foo {width: 50px;}
