@@ -42,6 +42,7 @@ Base.:*(x::T, ::BareUnit{U}) where {U <: Unit, T<:Number} = U{T}(x)
 
 # common css units (ex, ch excluded)
 const px = BareUnit{Unit{:px}}()
+const pt = BareUnit{Unit{:pt}}()
 const em = BareUnit{Unit{:em}}()
 const rem = BareUnit{Unit{:rem}}()
 const vh = BareUnit{Unit{:vh}}()
