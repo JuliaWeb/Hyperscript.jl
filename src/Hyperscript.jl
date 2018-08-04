@@ -53,7 +53,6 @@
     escapechild(ctx) = NO_ESCAPES
 =#
 
-__precompile__()
 module Hyperscript
 
 export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, savesvg
