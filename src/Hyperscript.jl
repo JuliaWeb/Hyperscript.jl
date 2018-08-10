@@ -69,7 +69,7 @@ struct CSS <: Context
     allow_nan_attr_values::Bool
 end
 
-struct DOM <: Context
+struct HTMLSVG <: Context
     allow_nan_attr_values::Bool
     noescape::Bool
 end
@@ -182,9 +182,9 @@ printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 kebab(camel::String) = join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
 
 
-## DOM
+## HTMLSVG
 
-function render(io::IO, rctx::RenderContext, ctx::DOM, node::Node{DOM})
+function render(io::IO, rctx::RenderContext, ctx::HTMLSVG, node::Node{HTMLSVG})
     etag = escapetag(ctx)
     eattrname = escapeattrname(ctx)
     eattrvalue = escapeattrvalue(ctx)
@@ -229,13 +229,13 @@ const VOID_TAGS = Set([
 ])
 isvoid(tag) = tag ∈ VOID_TAGS
 
-# Rendering DOM child nodes in their own context
-renderdomchild(io, rctx::RenderContext, ctx::DOM, node::AbstractNode{DOM}) = render(io, rctx, node)
+# Rendering HTMLSVG child nodes in their own context
+renderdomchild(io, rctx::RenderContext, ctx::HTMLSVG, node::AbstractNode{HTMLSVG}) = render(io, rctx, node)
 
 # Do nothing for `nothing`; this is similar to using `nothing` as an attribute value for valueless attributes.
 renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
-# Render and escape other DOM children, including CSS nodes, in the parent context.
+# Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
 renderdomchild(io, rctx::RenderContext, ctx, x) = printescaped(io, x, escapechild(ctx))
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
@@ -259,53 +259,53 @@ const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
     "primitiveUnits", "specularConstant", "specularExponent", "limitingConeAngle",
     "pointsAtX", "pointsAtY", "pointsAtZ", "hatchContentUnits", "hatchUnits"])
 
-normalizetag(ctx::DOM, tag) = strip(tag)
+normalizetag(ctx::HTMLSVG, tag) = strip(tag)
 
 # The simplest normalization — kebab-case and don't pay attention to the tag.
 # Allows both squishcase and camelCase for the attributes above.
 # If the attribute name is a string and not a Symbol (using the Node constructor),
 # then no normalization is performed — this way you can pass any attribute you'd like.
-function normalizeattr(ctx::DOM, tag, (name, value)::Pair{Symbol, <:Any})
+function normalizeattr(ctx::HTMLSVG, tag, (name, value)::Pair{Symbol, <:Any})
     name = string(name)
     get(() -> kebab(name), HTML_SVG_CAMELS, lowercase(name)) => value
 end
 
-function normalizeattr(ctx::DOM, tag, attr::Pair{<:AbstractString, <:Any})
+function normalizeattr(ctx::HTMLSVG, tag, attr::Pair{<:AbstractString, <:Any})
     # Note: This must implementation must change if we begin to normalize attr values above.
     # Right now we only normalize attr names.
     attr
 end
 
-normalizechild(ctx::DOM, tag, child) = child
+normalizechild(ctx::HTMLSVG, tag, child) = child
 
 # Nice printing in errors
-stringify(ctx::DOM, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
-stringify(ctx::DOM, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
+stringify(ctx::HTMLSVG, tag, attr::String=" ") = "<$tag>$attr $(isvoid(tag) ? " />" : ">")"
+stringify(ctx::HTMLSVG, tag, (name, value)::Pair) = stringify(ctx, tag, " $name=$value")
 
 function validatetag(ctx::CSS, tag)
     isempty(tag) && error("Tag cannot be empty.")
     tag
 end
 
-function validateattr(ctx::DOM, tag, attr)
+function validateattr(ctx::HTMLSVG, tag, attr)
     (name, value) = attr
     if !ctx.allow_nan_attr_values && typeof(value) <: AbstractFloat && isnan(value)
-        error("NaN values are not allowed for DOM nodes: $(stringify(ctx, tag, attr))")
+        error("NaN values are not allowed for HTML or SVG nodes: $(stringify(ctx, tag, attr))")
     end
     if any(isspace, name)
-        error("Spaces are not allowed in DOM attribute names: $(stringify(ctx, tag, attr))")
+        error("Spaces are not allowed in HTML or SVG attribute names: $(stringify(ctx, tag, attr))")
     end
     attr
 end
 
-function validatechild(ctx::DOM, tag, child)
+function validatechild(ctx::HTMLSVG, tag, child)
     if isvoid(tag)
         error("Void tags are not allowed to have children: $(stringify(ctx, tag))")
     end
     child
 end
 
-# Creates an DOM escaping dictionary
+# Creates an HTML or SVG escaping dictionary
 chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
 
 # See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
@@ -317,22 +317,22 @@ const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
 # Used for CSS nodes, as well as children of tag nodes defined with @tags_noescape
 const NO_ESCAPES = Dict{Char, String}()
 
-escapetag(ctx::DOM) = HTML_ESCAPES
-escapeattrname(ctx::DOM) = HTML_ESCAPES
-escapeattrvalue(ctx::DOM) = ATTR_VALUE_ESCAPES
-escapechild(ctx::DOM) = ctx.noescape ? NO_ESCAPES : HTML_ESCAPES
+escapetag(ctx::HTMLSVG) = HTML_ESCAPES
+escapeattrname(ctx::HTMLSVG) = HTML_ESCAPES
+escapeattrvalue(ctx::HTMLSVG) = ATTR_VALUE_ESCAPES
+escapechild(ctx::HTMLSVG) = ctx.noescape ? NO_ESCAPES : HTML_ESCAPES
 
 # Concise CSS class shorthand
 addclass(attrs, class) = haskey(attrs, "class") ? string(attrs["class"], " ", class) : class
-Base.getproperty(x::Node{DOM}, class::Symbol) = x(class=addclass(attrs(x), kebab(String(class))))
-Base.getproperty(x::Node{DOM}, class::String) = x(class=addclass(attrs(x), class))
+Base.getproperty(x::Node{HTMLSVG}, class::Symbol) = x(class=addclass(attrs(x), kebab(String(class))))
+Base.getproperty(x::Node{HTMLSVG}, class::String) = x(class=addclass(attrs(x), class))
 
-const DEFAULT_DOM_CONTEXT = DOM(false, false)
-const NOESCAPE_DOM_CONTEXT = DOM(false, true)
-m(tag::AbstractString, cs...; as...) = Node(DEFAULT_DOM_CONTEXT, tag, cs, as)
+const DEFAULT_HTMLSVG_CONTEXT = HTMLSVG(false, false)
+const NOESCAPE_HTMLSVG_CONTEXT = HTMLSVG(false, true)
+m(tag::AbstractString, cs...; as...) = Node(DEFAULT_HTMLSVG_CONTEXT, tag, cs, as)
 m(ctx::Context, tag::AbstractString, cs...; as...) = Node(ctx, tag, cs, as)
 
-# DOM tags macros
+# HTML/SVG tags macros
 macro tags(args::Symbol...)
     blk = Expr(:block)
     for tag in args
@@ -348,7 +348,7 @@ macro tags_noescape(args::Symbol...)
     blk = Expr(:block)
     for tag in args
         push!(blk.args, quote
-            const $(esc(tag)) = m(NOESCAPE_DOM_CONTEXT, $(string(tag)))
+            const $(esc(tag)) = m(NOESCAPE_HTMLSVG_CONTEXT, $(string(tag)))
         end)
     end
     push!(blk.args, nothing)
@@ -403,7 +403,7 @@ normalizetag(ctx::CSS, tag) = strip(tag)
 
 stringify(ctx::CSS, tag, (name, value)::Pair) = "$tag { $name: $value; }"
 
-function validatetag(ctx::DOM, tag)
+function validatetag(ctx::HTMLSVG, tag)
     isempty(tag) && error("Tag cannot be empty.")
     tag
 end
@@ -437,8 +437,8 @@ css(tag, children...; attrs...) = Node(DEFAULT_CSS_CONTEXT, tag, children, attrs
 
 # A `Styled` node results from the application of a `Style` to a `Node`.
 # It serves as a cascade barrier — parent styles do not bleed into nested styled nodes.
-struct Styled <: AbstractNode{DOM}
-    node::Node{DOM}
+struct Styled <: AbstractNode{HTMLSVG}
+    node::Node{HTMLSVG}
     style
 end
 
@@ -478,7 +478,7 @@ render(io::IO, rctx::RenderContext, x::Style) = for node in x.styles
     render(io, rctx, node)
 end
 
-augmentdom(id, x) = x # Literals and other non-DOM objects
+augmentdom(id, x) = x # Literals and other non-HTML/SVG objects
 augmentdom(id, x::Styled) = x # `Styled` nodes act as cascade barriers
 augmentdom(id, node::Node{T}) where {T} = Node{T}(
     context(node),
