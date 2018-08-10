@@ -61,7 +61,7 @@ end
 @errors m("p"; [Symbol("7 space name") => 7]...)
 
 # Passing a string as an attribute name preserves it un-normalized
-@renders Hyperscript.Node(Hyperscript.DEFAULT_DOM_CONTEXT, "p", [], ["camelName" => 7.0]) s`<p camelName="7.0"></p>`
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "p", [], ["camelName" => 7.0]) s`<p camelName="7.0"></p>`
 
 ## Children
 # Can render children
@@ -107,8 +107,8 @@ end
 @renders m("path", pathlength=7) s`<path pathLength="7" />`
 # for those special attributes you can still bypass HTML normalization (but not validation)
 # by sending the value in as a String
-@renders Hyperscript.Node(Hyperscript.DEFAULT_DOM_CONTEXT, "path", [], ["pathlength" => 7]) s`<path pathlength="7" />`
-@renders Hyperscript.Node(Hyperscript.DEFAULT_DOM_CONTEXT, "path", [], ["path-length" => 7]) s`<path path-length="7" />`
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "path", [], ["pathlength" => 7]) s`<path pathlength="7" />`
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "path", [], ["path-length" => 7]) s`<path path-length="7" />`
 
 # Void tags render as void tags
 @renders m("br") s`<br />`
