@@ -213,7 +213,7 @@ Supported units are `px`, `pt`, `em`,`vh`, `vw`, `vmin`, `vmax`, and `pc` for pe
 
 I'd like to create a more comprehensive guide to the full functionality available in Hyperscript at some point. For now here's a list of some of the finer points:
 
-* Nodes are immutable — any derivation of new nodes from existing nodes will not leave existing nodes unchanged.
+* Nodes are immutable — any derivation of new nodes from existing nodes will leave existing nodes unchanged.
 * Calling an existing node with with more children creates a new node with the new children appended.
 * Calling an existing node with more attributes creates a new node whose attributes are the `merge` of the existing and new attributes.
 * `div.fooBar` adds the CSS class `foo-bar`. To add the camelCase class `fooBar` you can use the dot syntax with a string: `div."fooBar"`
