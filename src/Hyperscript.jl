@@ -114,7 +114,7 @@ function Base.typed_hvcat(node::AbstractNode, rows::Tuple{Vararg{Int64}}, xs::An
 end
 Base.typed_hcat(node::AbstractNode, xs::Any...) = node(xs...)
 Base.typed_vcat(node::AbstractNode, xs::Any...) = node(xs...)
-Base.getindex(node::AbstractNode, xs::Any...) = node(xs...)
+Base.getindex(node::Union{AbstractNode, Type{<:AbstractNode}}, xs::Any...) = node(xs...)
 
 function Base.:(==)(x::Node, y::Node)
     context(x)  == context(y)  && tag(x)   == tag(y) &&
