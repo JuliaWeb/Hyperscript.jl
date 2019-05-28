@@ -244,7 +244,7 @@ renderdomchild(io, rctx::RenderContext, ctx::HTMLSVG, node::AbstractNode{HTMLSVG
 renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
 # Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
-# renderdomchild(io, rctx::RenderContext, ctx, x) = printescaped(io, x, escapechild(ctx))
+# If a child is `showable` with text/html, render with that using `repr`.
 renderdomchild(io, rctx::RenderContext, ctx, x) = 
     showable(MIME("text/html"), x) ? print(io, repr(MIME("text/html"), x)) : printescaped(io, x, escapechild(ctx))
 
