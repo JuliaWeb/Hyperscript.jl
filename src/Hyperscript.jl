@@ -244,7 +244,9 @@ renderdomchild(io, rctx::RenderContext, ctx::HTMLSVG, node::AbstractNode{HTMLSVG
 renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
 # Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
-renderdomchild(io, rctx::RenderContext, ctx, x) = printescaped(io, x, escapechild(ctx))
+# If a child is `showable` with text/html, render with that using `repr`.
+renderdomchild(io, rctx::RenderContext, ctx, x) = 
+    showable(MIME("text/html"), x) ? print(io, repr(MIME("text/html"), x)) : printescaped(io, x, escapechild(ctx))
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
