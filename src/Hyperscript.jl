@@ -245,8 +245,7 @@ renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
 # Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
 # If a child is `showable` with text/html, render with that using `repr`.
-renderdomchild(io, rctx::RenderContext, ctx, x) = 
-    showable(MIME("text/html"), x) ? print(io, repr(MIME("text/html"), x)) : printescaped(io, x, escapechild(ctx))
+renderdomchild(io, rctx::RenderContext, ctx, x) = print(io, repr(MIME("text/html"), x))
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
@@ -470,16 +469,15 @@ struct Style
     augmentcss(id, node) = Node{CSS}(
         context(node),
         isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style$id]",
-        augmentcss.(id, children(node)),
+        Any[augmentcss(id, child) for child in children(node)],
         attrs(node)
     )
     Style(id::Int, styles) = new(id, [augmentcss(id, node) for node in styles])
 end
 
-style_id = 0
+const style_id = Ref(0)
 function Style(styles...)
-    global style_id
-    Style(style_id += 1, styles)
+    Style(style_id[] += 1, styles)
 end
 
 styles(x::Style) = x.styles
@@ -490,12 +488,14 @@ end
 
 augmentdom(id, x) = x # Literals and other non-HTML/SVG objects
 augmentdom(id, x::Styled) = x # `Styled` nodes act as cascade barriers
-augmentdom(id, node::Node{T}) where {T} = Node{T}(
-    context(node),
-    tag(node),
-    augmentdom.(id, children(node)),
-    push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
-)
+function augmentdom(id, node::Node{T}) where {T}
+    Node{T}(
+        context(node),
+        tag(node),
+        Any[augmentdom(id, child) for child in children(node)],
+        push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
+    )
+end
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x), s)
 
 
