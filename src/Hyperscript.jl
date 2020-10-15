@@ -108,14 +108,6 @@ attrs(x::Node)    = Base.getfield(x, :attrs)
 children(x::Node) = Base.getfield(x, :children)
 context(x::Node)  = Base.getfield(x, :context)
 
-# Experimental concise node specification support
-function Base.typed_hvcat(node::AbstractNode, rows::Tuple{Vararg{Int64}}, xs::Any...)
-    node(xs...)
-end
-Base.typed_hcat(node::AbstractNode, xs::Any...) = node(xs...)
-Base.typed_vcat(node::AbstractNode, xs::Any...) = node(xs...)
-Base.getindex(node::Union{AbstractNode, Type{<:AbstractNode}}, xs::Any...) = node(xs...)
-
 function Base.:(==)(x::Node, y::Node)
     context(x)  == context(y)  && tag(x)   == tag(y) &&
     children(x) == children(y) && attrs(x) == attrs(y)
