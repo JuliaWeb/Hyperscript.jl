@@ -278,3 +278,18 @@ import Hyperscript: px, em
 @test string(5 * (1px + 2em)) == "calc(5 * (1px + 2em))"
 @test string(5 * (1px + 3px + 4.3em)) == "calc(5 * (4px + 4.3em))"
 @test string(3.2 * (4.3em + 1px + 3px)) == "calc(3.2 * ((4.3em + 1px) + 3px))"
+
+# IOContext passthrough.
+struct MyType
+end
+Base.show(io::IO, ::MIME"text/html", ::MyType) = print(io, get(io, :key, ""))
+
+let
+    io = IOBuffer()
+    show(io, MIME("text/html"), m("div")(MyType()))
+    @test String(take!(io)) == "<div></div>"
+
+    ctx = IOContext(io, :key => "value")
+    show(ctx, MIME("text/html"), m("div")(MyType()))
+    @test String(take!(io)) == "<div>value</div>"
+end
