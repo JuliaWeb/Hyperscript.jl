@@ -3,8 +3,8 @@ uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
 author = ["Yuri Vishnevsky <yurivish@gmail.com>"]
 version = "0.0.4"
 
-[compat]
-julia = "1"
-
 [deps]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+julia = "1"
