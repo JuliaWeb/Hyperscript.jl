@@ -130,7 +130,7 @@ function processattrs(ctx, tag, attrs)
     )
 end
 
-function flat(xs::Union{Base.Generator, Tuple, Array})
+function flat(xs::Union{Base.Generator, Tuple, AbstractArray})
     out = Any[] # Vector{Any} for node children and attribute values
     for x in xs
         append!(out, flat(x))
