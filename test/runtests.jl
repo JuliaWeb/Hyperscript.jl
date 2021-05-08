@@ -90,6 +90,8 @@ end
 ## Generators, arrays, and tuples
 # Arrays are flattened
 @renders m("p", [1, 2, 3]) s`<p>123</p>`
+# AbstractArrays are flattened
+@renders m("p", BitArray([0, 1, 0])) s`<p>falsetruefalse</p>`
 # Generators are flattened
 @renders m("p", (x for x in 1:3)) s`<p>123</p>`
 # Tuples are flattened
