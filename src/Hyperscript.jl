@@ -138,6 +138,7 @@ function flat(xs::Union{Base.Generator, Tuple, AbstractArray})
     out
 end
 flat(x) = (x,)
+flat(x::AbstractRange) = (x,)
 
 ## Rendering
 
