@@ -2,6 +2,10 @@
 
 using Hyperscript
 using Markdown, BenchmarkTools
+using Plots
+
+default(size=(800, 400))
+
 
 # Define a parent BenchmarkGroup to contain the suite
 suite = BenchmarkGroup()
@@ -167,4 +171,36 @@ if isfile(paramspath)
 else
     tune!(suite)
     BenchmarkTools.save(paramspath, params(suite));
+end
+
+
+# Generate a simple HTML report of the benchmarks.
+# Usage: savereport(run(suite))
+function savereport(results, path=joinpath(dirname(@__FILE__), "report.html"))
+    p(k) = bar(
+        collect(keys(results[k])),
+        (x -> minimum(x).time).(values(results[k])),
+        xticks=:all,
+        xrotation=25,
+        yscale=:log10,
+        ylabel="min. time (ns)",
+        # title=k,
+        label=:none,
+    )
+
+    report = m("html",
+        m("head", m("title", "Benchmarks")),
+        m("body", style="text-align: center",
+            m("h1", "Benchmarks"),
+            m("h2", "HTML"), p("HTML"),
+            m("h2", "CSS"), p("CSS"),
+            m("h2", "CSS Units"), p("CSS Units"),
+            m("h2", "Scoped Styles"), p("Scoped Styles"),
+        ),
+    )
+
+    open(path, "w") do io
+        print(io, "<!DOCTYPE html>")
+        show(io, "text/html", report)
+    end
 end
