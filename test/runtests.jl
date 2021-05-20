@@ -189,6 +189,52 @@ end
 # Dot syntax with regular class specification as an override
 @renders m("p", class="a")(class="b") s`<p class="b"></p>`
 
+# Do block syntax for Node application
+@renders p() do
+end s`<p></p>`
+@renders p() do
+    "child"
+end s`<p>child</p>`
+@renders p("child1") do
+    "child2"
+end s`<p>child1child2</p>`
+# Do block syntax for m
+@renders m("p") do
+end s`<p></p>`
+@renders m("p") do
+    "child"
+end s`<p>child</p>`
+@renders m("p", "child1") do
+    "child2"
+end s`<p>child1child2</p>`
+# Do block syntax for Node
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "p", [], []) do
+end s`<p></p>`
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "p", [], []) do
+    "child"
+end s`<p>child</p>`
+@renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "p", ["child1"], []) do
+    "child2"
+end s`<p>child1child2</p>`
+# Do block syntax with attributes
+@renders m("p", class="a") do
+end s`<p class="a"></p>`
+@renders m("p", class="a") do
+    "child"
+end s`<p class="a">child</p>`
+@renders m("p", "child1", class="a") do
+    "child2"
+end s`<p class="a">child1child2</p>`
+# Do block syntax with dot syntax
+@renders m("p").a() do
+end s`<p class="a"></p>`
+@renders m("p").a() do
+    "child"
+end s`<p class="a">child</p>`
+@renders m("p").a("child1") do
+    "child2"
+end s`<p class="a">child1child2</p>`
+
 ## CSS nodes
 # Tags must be strings
 @renders css("p") s`p {}`
