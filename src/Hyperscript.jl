@@ -55,6 +55,8 @@
 
 module Hyperscript
 
+using Base64: stringmime
+
 export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, savesvg
 
 # Units
@@ -241,16 +243,24 @@ renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 function renderdomchild(io, rctx::RenderContext, ctx, x)
     for mime in allmimes
         if showable(mime, x)
-            return showrich(io, mime, x)
+            showrich(io, mime, x)
+            return
         end
     end
     printescaped(io, x, escapechild(ctx))
 end
 
 # Supported MIME types in descending order of importance.
-const allmimes = [MIME"text/html"()]
+const base64imagemimes = [MIME"image/png"(), MIME"image/jpg"(), MIME"image/jpeg"(), MIME"image/bmp"(), MIME"image/gif"()]
+const imagemimes = [MIME"image/svg+xml"(), base64imagemimes...]
+const allmimes = [MIME"text/html"(), imagemimes...]
 
 showrich(io::IO, mime::MIME"text/html", x) = show(io, mime, x)
+for mime in base64imagemimes
+    @eval showrich(io::IO, mime::$(typeof(mime)), x) =
+        show(io, MIME("text/html"), m("img", src=datauri(mime, x)))
+end
+datauri(mime, x) = "data:$(mime);base64,$(stringmime(mime, x))"
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
