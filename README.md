@@ -108,6 +108,34 @@ print(Pretty(node))
 
 Note that the extra white space can affect layout, particularly in conjunction with CSS properties like [white-space](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space).
 
+Vectors of nodes can be written as an html-file using the `savehtml` function. Here's an example:
+
+```julia
+@tags head meta body h1 h2 ul li
+
+doc = [
+    head(
+      meta(charset="UTF-8"),
+      ),
+    body(
+         [
+          h1("My title"),
+             "Some text",
+             h2("A list"),
+             ul(li.(["First point", "Second Point"]))
+         ] )
+]
+# 2-element Vector{Hyperscript.Node{Hyperscript.HTMLSVG}}:
+# <head><meta charset="UTF-8" /></head>
+# <body><h1>My title</h1>Some text<h2>A list</h2><ul><li>First point</li><li>Second Point</li></ul></body>
+
+savehtml("/tmp/hyper.html", doc) ;
+
+# cat /tmp/hyper.html
+# <!doctype html>
+# <html><head><meta charset="UTF-8" /></head><body><h1>My title</h1>Some text<h2>A list</h2><ul><li>First point</li><li>Second Point</li></ul></body></html>
+```
+
 ## CSS
 
 In addition to HTML and SVG, Hyperscript also supports CSS:
