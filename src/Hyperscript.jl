@@ -59,7 +59,7 @@ export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, s
 
 # Units
 include(joinpath(@__DIR__, "cssunits.jl"))
-export px, pt, em, #= (this one conflicts with Base) rem, =# vh, vw, vmin, vmax, pc
+export px, pt, em, #= (this one conflicts with Base) rem, =# vh, vw, vmin, vmax, pc, fr
 
 ## Basic definitions
 
