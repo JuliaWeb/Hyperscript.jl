@@ -124,14 +124,11 @@ doc = [
              h2("A list"),
              ul(li.(["First point", "Second Point"]))
          ] )
-]
-# 2-element Vector{Hyperscript.Node{Hyperscript.HTMLSVG}}:
-# <head><meta charset="UTF-8" /></head>
-# <body><h1>My title</h1>Some text<h2>A list</h2><ul><li>First point</li><li>Second Point</li></ul></body>
+];
 
-savehtml("/tmp/hyper.html", doc) ;
+savehtml("/tmp/hyper.html", doc);
 
-# cat /tmp/hyper.html
+read("/tmp/hyper.html", String)
 # <!doctype html>
 # <html><head><meta charset="UTF-8" /></head><body><h1>My title</h1>Some text<h2>A list</h2><ul><li>First point</li><li>Second Point</li></ul></body></html>
 ```
