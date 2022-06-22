@@ -179,8 +179,8 @@ printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), esc
 # allocation via sprint. future use: sprint(printescaped, x, escapes))
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 
-# pass numbers through untrammelled
-kebab(camel::String) = join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel)
+# pass numbers (and 1-character attributes) through untrammelled
+kebab(camel::String) = length(camel) > 1 ? join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel) : camel
 
 
 ## HTMLSVG
