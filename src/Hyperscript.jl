@@ -335,6 +335,11 @@ const NOESCAPE_HTMLSVG_CONTEXT = HTMLSVG(false, true)
 m(tag::AbstractString, cs...; as...) = Node(DEFAULT_HTMLSVG_CONTEXT, tag, cs, as)
 m(ctx::Context, tag::AbstractString, cs...; as...) = Node(ctx, tag, cs, as)
 
+# Do block syntax
+Node(f::Function, ctx::T, tag::AbstractString, children, attrs) where T <: Context = Node(ctx, tag, [children..., f()], attrs)
+(x::Node)(f::Function, cs...; as...) = x(cs..., f(); as...)
+m(f::Function, args...; as...) = m(args..., f(); as...)
+
 # HTML/SVG tags macros
 macro tags(args::Symbol...)
     blk = Expr(:block)
