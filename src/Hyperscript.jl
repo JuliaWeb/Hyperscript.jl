@@ -55,6 +55,8 @@
 
 module Hyperscript
 
+using Base64: stringmime
+
 export @tags, @tags_noescape, m, css, Style, styles, render, Pretty, savehtml, savesvg
 
 # Units
@@ -237,9 +239,28 @@ renderdomchild(io, rctx::RenderContext, ctx::HTMLSVG, node::AbstractNode{HTMLSVG
 renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
 # Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
-# If a child is `showable` with text/html, render with that using `repr`.
-renderdomchild(io, rctx::RenderContext, ctx, x) = 
-    showable(MIME("text/html"), x) ? show(io, MIME("text/html"), x) : printescaped(io, x, escapechild(ctx))
+# If a child is `showable` with a supported MIME type, render with that using `showrich`.
+function renderdomchild(io, rctx::RenderContext, ctx, x)
+    for mime in allmimes
+        if showable(mime, x)
+            showrich(io, mime, x)
+            return
+        end
+    end
+    printescaped(io, x, escapechild(ctx))
+end
+
+# Supported MIME types in descending order of importance.
+const base64imagemimes = [MIME"image/png"(), MIME"image/jpg"(), MIME"image/jpeg"(), MIME"image/bmp"(), MIME"image/gif"()]
+const imagemimes = [MIME"image/svg+xml"(), base64imagemimes...]
+const allmimes = [MIME"text/html"(), imagemimes...]
+
+showrich(io::IO, mime::MIME"text/html", x) = show(io, mime, x)
+for mime in base64imagemimes
+    @eval showrich(io::IO, mime::$(typeof(mime)), x) =
+        show(io, MIME("text/html"), m("img", src=datauri(mime, x)))
+end
+datauri(mime, x) = "data:$(mime);base64,$(stringmime(mime, x))"
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
