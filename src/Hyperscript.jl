@@ -196,6 +196,11 @@ function render(io::IO, rctx::RenderContext, ctx::HTMLSVG, node::Node{HTMLSVG})
     end
     printescaped(io, tag(node), etag)
     for (name, value) in pairs(attrs(node))
+        if isboolattr(name)
+            value isa Bool || error("Boolean attribute \"$(name)\" expects `Bool`, found `$(typeof(value))`: $(stringify(ctx, tag(node), name => value))")
+            value = value ? "" : continue
+        end
+
         print(io, " ")
         printescaped(io, name, eattrname)
         if value != nothing
@@ -222,6 +227,37 @@ function render(io::IO, rctx::RenderContext, ctx::HTMLSVG, node::Node{HTMLSVG})
         print(io, ">")
     end
 end
+
+const BOOL_ATTRS = Set([
+    "allowfullscreen",
+    "allowpaymentrequest",
+    "async",
+    "autofocus",
+    "autoplay",
+    "checked",
+    "controls",
+    "default",
+    "defer",
+    "disabled",
+    "formnovalidate",
+    "hidden",
+    "ismap",
+    "itemscope",
+    "loop",
+    "multiple",
+    "muted",
+    "nomodule",
+    "novalidate",
+    "open",
+    "playsinline",
+    "readonly",
+    "required",
+    "reversed",
+    "selected",
+    "truespeed",
+    "typemustmatch"
+])
+isboolattr(attr::AbstractString) = attr in BOOL_ATTRS
 
 const VOID_TAGS = Set([
     "track", "hr", "col", "embed", "br", "circle", "input", "base",

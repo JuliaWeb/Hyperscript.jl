@@ -63,6 +63,12 @@ end
 # Passing a string as an attribute name preserves it un-normalized
 @renders Hyperscript.Node(Hyperscript.DEFAULT_HTMLSVG_CONTEXT, "p", [], ["camelName" => 7.0]) s`<p camelName="7.0"></p>`
 
+# Support boolean values for boolean attributes
+@renders m("input", type="checkbox", checked=true) s`<input checked="" type="checkbox" />`
+@renders m("input", type="checkbox", checked=false) s`<input type="checkbox" />`
+# @errors m("input", type="checkbox", checked="true")
+@renders m("input", type="text", value=true) s`<input value="true" type="text" />`
+
 ## Children
 # Can render children
 @renders m("p", "child") s`<p>child</p>`
