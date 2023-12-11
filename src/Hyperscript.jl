@@ -206,7 +206,7 @@ function render(io::IO, rctx::RenderContext, ctx::HTMLSVG, node::Node{HTMLSVG})
     end
 
     if isvoid(tag(node))
-        @assert isempty(children(node))
+        error("Tag $(tag(node)) is a void tag and cannot have children. Found: $(children(node))")
         print(io, " />")
     else
         print(io, ">")
