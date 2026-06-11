@@ -180,7 +180,24 @@ printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), esc
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 
 # pass numbers (and 1-character attributes) through untrammelled
-kebab(camel::String) = length(camel) > 1 ? join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel) : camel
+function kebab(camel::String)
+    length(camel) > 1 || return camel
+    # explicit loop instead of `join` over a generator: the generator join
+    # path carries abstract-iteration edges (`>(::Int, ::Any)` deep in
+    # Base.collect) that get invalidated by half the ecosystem (e.g. SIMD.jl
+    # comparison methods), recompiling every DOM-construction caller; the
+    # loop is concretely inferred end to end
+    io = IOBuffer(sizehint = ncodeunits(camel) + 8)
+    for c in camel
+        if islowercase(c) || isnumeric(c) || c == '-'
+            print(io, c)
+        else
+            print(io, '-')
+            print(io, lowercase(c))
+        end
+    end
+    return String(take!(io))
+end
 
 
 ## HTMLSVG
