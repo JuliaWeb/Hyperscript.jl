@@ -180,7 +180,24 @@ printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), esc
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 
 # pass numbers (and 1-character attributes) through untrammelled
-kebab(camel::String) = length(camel) > 1 ? join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel) : camel
+function kebab(camel::String)
+    length(camel) > 1 || return camel
+    # explicit loop instead of `join` over a generator: the generator join
+    # path carries abstract-iteration edges (`>(::Int, ::Any)` deep in
+    # Base.collect) that get invalidated by half the ecosystem (e.g. SIMD.jl
+    # comparison methods), recompiling every DOM-construction caller; the
+    # loop is concretely inferred end to end
+    io = IOBuffer(sizehint = ncodeunits(camel) + 8)
+    for c in camel
+        if islowercase(c) || isnumeric(c) || c == '-'
+            print(io, c)
+        else
+            print(io, '-')
+            print(io, lowercase(c))
+        end
+    end
+    return String(take!(io))
+end
 
 
 ## HTMLSVG
@@ -237,9 +254,18 @@ renderdomchild(io, rctx::RenderContext, ctx::HTMLSVG, node::AbstractNode{HTMLSVG
 renderdomchild(io, rctx::RenderContext, ctx, x::Nothing) = nothing
 
 # Render and escape other HTMLSVG children, including CSS nodes, in the parent context.
-# If a child is `showable` with text/html, render with that using `repr`.
-renderdomchild(io, rctx::RenderContext, ctx, x) = 
-    showable(MIME("text/html"), x) ? show(io, MIME("text/html"), x) : printescaped(io, x, escapechild(ctx))
+# If a child is `showable` with text/html, render with that using `show`.
+# Fast paths for common child types avoid the `showable` check, which is slow
+# since it calls `hasmethod`.
+function renderdomchild(io, rctx::RenderContext, ctx, x)
+    if x isa Number || x isa AbstractString
+        printescaped(io, x, escapechild(ctx))
+    elseif x isa HTML || showable(MIME("text/html"), x)
+        show(io, MIME("text/html"), x)
+    else
+        printescaped(io, x, escapechild(ctx))
+    end
+end
 
 # All camelCase attribute names from HTML 4, HTML 5, SVG 1.1, SVG Tiny 1.2, and SVG 2
 const HTML_SVG_CAMELS = Dict(lowercase(x) => x for x in [
@@ -463,16 +489,15 @@ struct Style
     augmentcss(id, node) = Node{CSS}(
         context(node),
         isempty(attrs(node)) || ismedia(node) ? tag(node) : tag(node) * "[v-style$id]",
-        augmentcss.(id, children(node)),
+        Any[augmentcss(id, child) for child in children(node)],
         attrs(node)
     )
     Style(id::Int, styles) = new(id, [augmentcss(id, node) for node in styles])
 end
 
-style_id = 0
+const STYLE_ID = Threads.Atomic{Int}(0)
 function Style(styles...)
-    global style_id
-    Style(style_id += 1, styles)
+    Style(Threads.atomic_add!(STYLE_ID, 1) + 1, styles)
 end
 
 styles(x::Style) = x.styles
@@ -486,7 +511,7 @@ augmentdom(id, x::Styled) = x # `Styled` nodes act as cascade barriers
 augmentdom(id, node::Node{T}) where {T} = Node{T}(
     context(node),
     tag(node),
-    augmentdom.(id, children(node)),
+    Any[augmentdom(id, child) for child in children(node)],
     push!(copy(attrs(node)), "v-style$id" => nothing) # note: makes a defensive copy
 )
 (s::Style)(x::Node) = Styled(augmentdom(s.id, x), s)
