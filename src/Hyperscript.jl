@@ -180,7 +180,7 @@ printescaped(io::IO, x::AbstractChar, escapes) = printescaped(io, string(x), esc
 printescaped(io::IO, x, escapes) = printescaped(io, sprint(print, x), escapes)
 
 # pass numbers (and 1-character attributes) through untrammelled
-kebab(camel::String) = length(camel) > 1 ? join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel) : camel
+kebab(camel::String) = camel[1] * join(islowercase(c) || isnumeric(c) || c == '-' ? c : '-' * lowercase(c) for c in camel[2:end])
 
 
 ## HTMLSVG
@@ -311,14 +311,18 @@ end
 # Creates an HTML or SVG escaping dictionary
 chardict(chars) = Dict(c => "&#$(Int(c));" for c in chars)
 
-# See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
-const ATTR_VALUE_ESCAPES = chardict("&<>\"\n\r\t")
-
-# See: https://stackoverflow.com/a/9189067/1175713
-const HTML_ESCAPES = chardict("&<>\"'`!@\$%()=+{}[]")
-
 # Used for CSS nodes, as well as children of tag nodes defined with @tags_noescape
 const NO_ESCAPES = Dict{Char, String}()
+
+# See: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
+const ATTR_VALUE_ESCAPES = NO_ESCAPES
+#chardict("&<>\"\n\r\t")
+
+# See: https://stackoverflow.com/a/9189067/1175713
+const HTML_ESCAPES = NO_ESCAPES
+# chardict("&<>\"'`!@\$%()=+{}[]")
+
+
 
 escapetag(ctx::HTMLSVG) = HTML_ESCAPES
 escapeattrname(ctx::HTMLSVG) = HTML_ESCAPES

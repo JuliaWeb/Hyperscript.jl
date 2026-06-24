@@ -1,5 +1,16 @@
 # Hyperscript
 
+##Changes
+
+Besides fixing the camelcase algorithm for initial caps, which i PR'd, I have removed all escapes everywhere for everything. Remember to add them back one at a time if problems show up.
+
+
+
+
+
+
+
+
 Hyperscript is a package for working with HTML, SVG, and CSS in Julia.
 
 When using this library you automatically get:
